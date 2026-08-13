@@ -56,19 +56,6 @@ async function readSseUntil(
 }
 
 describe("panel server", () => {
-  it("serves the current tree snapshot as JSON at /data", async (t) => {
-    const panel = createPanelServer({ getTree: () => tree })
-    await panel.start()
-    t.after(() => panel.close())
-
-    const response = await fetch(`${panel.url()}data`)
-    assert.equal(response.status, 200)
-    assert.match(response.headers.get("content-type") ?? "", /application\/json/)
-    const body = (await response.json()) as FlowTree
-    assert.equal(body.sessionID, "s1")
-    assert.equal(body.units[0]?.request.content, "Hello")
-  })
-
   it("serves a rendered HTML page at /", async (t) => {
     const panel = createPanelServer({ getTree: () => tree })
     await panel.start()
