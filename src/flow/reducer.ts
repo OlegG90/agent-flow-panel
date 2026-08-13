@@ -39,21 +39,6 @@ function planState(status: string): PlanItem["state"] {
   }
 }
 
-export function getSessionID(event: Event): string | undefined {
-  switch (event.type) {
-    case "message.updated":
-      return event.properties.info.sessionID
-    case "message.part.updated":
-      return event.properties.part.sessionID
-    case "todo.updated":
-    case "session.idle":
-    case "session.status":
-      return event.properties.sessionID
-    default:
-      return undefined
-  }
-}
-
 export class FlowStore {
   private readonly sessionID: string
   private readonly units: UnitState[] = []

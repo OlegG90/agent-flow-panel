@@ -29,6 +29,9 @@ _Avoid_: "результат", "звіт про результат"
 
 ## Structure
 
+**Session**:
+A conversation between the human and the agent, made up of several Units of Work.
+
 **Unit of Work**:
 One human request together with the full tree of steps the agent performs to satisfy it.
 

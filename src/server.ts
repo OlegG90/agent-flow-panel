@@ -2,21 +2,17 @@ import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 import type { Plugin, PluginModule } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
-import type { FlowTree } from "./flow/types.ts"
-import { FlowStore, getSessionID } from "./flow/reducer.ts"
+import { SessionTracker } from "./flow/session-tracker.ts"
 import { renderTree } from "./flow/render.ts"
 import { createPanelServer } from "./server/panel-server.ts"
 
 const execFileAsync = promisify(execFile)
-const stores = new Map<string, FlowStore>()
-let activeSessionID: string | undefined
+const tracker = new SessionTracker()
 
 const panelServer = createPanelServer({
-  getTree: (): FlowTree => {
-    const store = activeSessionID ? stores.get(activeSessionID) : undefined
-    return store ? store.tree() : { sessionID: activeSessionID ?? "", units: [] }
-  },
+  getTree: () => tracker.tree(),
 })
+tracker.onUpdate(() => panelServer.publish())
 
 async function openInBrowser(url: string): Promise<void> {
   if (process.platform === "win32") {
@@ -31,7 +27,7 @@ const openPanel = tool({
   description: "Open the Agent Flow panel in the default browser.",
   args: {},
   execute: async (_args, context) => {
-    activeSessionID = context.sessionID
+    tracker.setActiveSession(context.sessionID)
     await panelServer.start()
     const url = panelServer.url()
     await openInBrowser(url)
@@ -43,26 +39,15 @@ const showTree = tool({
   description: "Show the Agent Flow step tree for this session as text.",
   args: {},
   execute: async (_args, context) => {
-    const store = stores.get(context.sessionID)
-    return store ? renderTree(store.tree()) : "No flow data recorded for this session."
+    const tree = tracker.tree(context.sessionID)
+    return tree.units.length > 0 ? renderTree(tree) : "No flow data recorded for this session."
   },
 })
 
 const server: Plugin = async () => {
   return {
     event: async ({ event }) => {
-      const sessionID = getSessionID(event)
-      if (!sessionID) {
-        return
-      }
-      activeSessionID = sessionID
-      let store = stores.get(sessionID)
-      if (!store) {
-        store = new FlowStore(sessionID)
-        stores.set(sessionID, store)
-      }
-      store.dispatch(event)
-      panelServer.publish()
+      tracker.dispatch(event)
     },
     tool: {
       flow_panel: openPanel,
