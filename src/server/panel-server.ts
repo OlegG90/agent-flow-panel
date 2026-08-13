@@ -1,6 +1,6 @@
 import http from "node:http"
 import type { FlowTree } from "../flow/types.ts"
-import { EVENTS_PATH, renderFlowHtml, renderPanelHtml } from "../panel/render.ts"
+import { EVENTS_PATH, renderFlowHtml, renderPanelHtml } from "../flow/render.ts"
 
 function sseData(data: string): string {
   return `data: ${data}\n\n`

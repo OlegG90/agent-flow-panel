@@ -1,7 +1,7 @@
 import { describe, it } from "node:test"
 import assert from "node:assert/strict"
-import type { FlowTree } from "../flow/types.ts"
-import { renderFlowHtml, renderPanelHtml } from "./render.ts"
+import type { FlowTree } from "./types.ts"
+import { renderFlowHtml, renderPanelHtml, renderTree } from "./render.ts"
 
 const tree: FlowTree = {
   sessionID: "s1",
@@ -129,5 +129,26 @@ describe("renderPanelHtml", () => {
     assert.ok(planAt !== -1)
     assert.ok(stepsAt !== -1)
     assert.ok(planAt < stepsAt)
+  })
+})
+
+describe("renderTree", () => {
+  it("renders nodes as a text tree with states and labels", () => {
+    const text = renderTree(tree)
+    assert.ok(text.includes("[done] User request: List the files"))
+    assert.ok(text.includes("[done] Model call"))
+    assert.ok(text.includes("[done] Tool: bash"))
+    assert.ok(text.includes("[failed] Tool: read"))
+    assert.ok(text.includes("↳ reasoning: User asked for a listing"))
+  })
+
+  it("renders the plan in text", () => {
+    const text = renderTree(tree)
+    assert.ok(text.includes("Plan:"))
+    assert.ok(text.includes("[completed] List files"))
+  })
+
+  it("returns an empty-state message for an empty tree", () => {
+    assert.equal(renderTree({ sessionID: "s1", units: [] }), "(no flow recorded)")
   })
 })
