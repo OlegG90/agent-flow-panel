@@ -61,6 +61,7 @@ export class FlowStore {
   private readonly messageRoles = new Map<string, "user" | "assistant">()
   private readonly toolNodes = new Map<string, StepNode>()
   private readonly subtaskNodes = new Set<string>()
+  private pendingTodos: Todo[] | undefined
 
   constructor(sessionID: string) {
     this.sessionID = sessionID
@@ -111,7 +112,7 @@ export class FlowStore {
         id,
         request: makeNode(`ur-${id}`, "user-request", "User request", "completed"),
         steps: [],
-        plan: [],
+        plan: this.takePendingTodos(),
         closed: false,
         turns: [],
       }
@@ -119,6 +120,18 @@ export class FlowStore {
       this.openUnit = unit
     }
     return this.openUnit
+  }
+
+  private takePendingTodos(): PlanItem[] {
+    const todos = this.pendingTodos
+    this.pendingTodos = undefined
+    return todos ? this.toPlan(todos) : []
+  }
+
+  private toPlan(todos: Todo[]): PlanItem[] {
+    return todos
+      .filter((todo) => todo.status !== "cancelled")
+      .map((todo) => ({ id: todo.id, title: todo.content, state: planState(todo.status) }))
   }
 
   private startUnit(messageID: string): void {
@@ -307,10 +320,9 @@ export class FlowStore {
   private onTodos(todos: Todo[]): void {
     const unit = this.openUnit
     if (!unit) {
+      this.pendingTodos = todos
       return
     }
-    unit.plan = todos
-      .filter((todo) => todo.status !== "cancelled")
-      .map((todo) => ({ id: todo.id, title: todo.content, state: planState(todo.status) }))
+    unit.plan = this.toPlan(todos)
   }
 }

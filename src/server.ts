@@ -62,6 +62,7 @@ const server: Plugin = async () => {
         stores.set(sessionID, store)
       }
       store.dispatch(event)
+      panelServer.publish()
     },
     tool: {
       flow_panel: openPanel,

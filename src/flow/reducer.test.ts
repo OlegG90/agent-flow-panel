@@ -229,6 +229,19 @@ describe("FlowStore", () => {
     assert.equal(reply.content, "Hello")
   })
 
+  it("applies todo updates to the next unit when none is open", () => {
+    const flow = store([
+      todos([{ id: "t1", content: "Early plan", status: "pending" }]),
+      updated(userMessage("m1")),
+      partUpdated(part("p1", "m1", { type: "text", text: "hi" })),
+    ])
+
+    const unit = flow.tree().units[0]!
+    assert.equal(unit.plan.length, 1)
+    assert.equal(unit.plan[0]!.title, "Early plan")
+    assert.equal(unit.plan[0]!.state, "pending")
+  })
+
   it("does not create a unit without a real user request", () => {
     const flow = store([
       updated(assistantMessage("m2")),

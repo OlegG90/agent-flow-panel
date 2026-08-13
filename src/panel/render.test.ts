@@ -1,7 +1,7 @@
 import { describe, it } from "node:test"
 import assert from "node:assert/strict"
 import type { FlowTree } from "../flow/types.ts"
-import { renderPanelHtml } from "./render.ts"
+import { renderFlowHtml, renderPanelHtml } from "./render.ts"
 
 const tree: FlowTree = {
   sessionID: "s1",
@@ -108,5 +108,26 @@ describe("renderPanelHtml", () => {
   it("renders an empty-state message when there are no units", () => {
     const html = renderPanelHtml({ sessionID: "s1", units: [] })
     assert.ok(html.includes("No flow recorded yet"))
+  })
+
+  it("embeds an SSE client script and a flow container id", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes('id="flow"'))
+    assert.ok(html.includes('new EventSource("/events")'))
+  })
+
+  it("renders the flow html as a single line for SSE transport", () => {
+    const flowHtml = renderFlowHtml(tree)
+    assert.ok(!flowHtml.includes("\n"))
+    assert.ok(flowHtml.includes("Tool: bash"))
+  })
+
+  it("renders the plan above the steps it previews", () => {
+    const html = renderPanelHtml(tree)
+    const planAt = html.indexOf('<ul class="plan">')
+    const stepsAt = html.indexOf('<ol class="steps">')
+    assert.ok(planAt !== -1)
+    assert.ok(stepsAt !== -1)
+    assert.ok(planAt < stepsAt)
   })
 })

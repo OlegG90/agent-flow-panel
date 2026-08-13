@@ -2,6 +2,9 @@ import type { FlowTree, StepNode, UnitOfWork } from "../flow/types.ts"
 import { STATE_LABEL } from "../flow/labels.ts"
 import { truncate } from "../flow/text.ts"
 
+export const FLOW_CONTAINER_ID = "flow"
+export const EVENTS_PATH = "/events"
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -43,8 +46,8 @@ function unitHtml(unit: UnitOfWork, index: number): string {
   return [
     '<section class="unit">',
     `<h2 class="unit-title">Unit of Work #${index + 1}</h2>`,
-    `<ol class="steps">${nodeHtml(unit.request)}${unit.steps.map(nodeHtml).join("")}</ol>`,
     planHtml,
+    `<ol class="steps">${nodeHtml(unit.request)}${unit.steps.map(nodeHtml).join("")}</ol>`,
     "</section>",
   ].join("")
 }
@@ -107,9 +110,24 @@ h1 { font-size: 1.25rem; }
 .plan-item[data-state="in-progress"] { color: var(--tool-call); border-color: var(--tool-call); }
 `
 
-export function renderPanelHtml(tree: FlowTree): string {
+export function renderFlowHtml(tree: FlowTree): string {
   const units = tree.units.map((unit, index) => unitHtml(unit, index)).join("")
   const empty = tree.units.length === 0 ? '<p class="empty">No flow recorded yet.</p>' : ""
+  return units + empty
+}
+
+const CLIENT_SCRIPT = `
+<script>
+(() => {
+  const flow = document.getElementById("${FLOW_CONTAINER_ID}");
+  if (!flow) return;
+  const source = new EventSource("${EVENTS_PATH}");
+  source.onmessage = (event) => { flow.innerHTML = event.data; };
+})();
+</script>
+`
+
+export function renderPanelHtml(tree: FlowTree): string {
   return [
     "<!doctype html>",
     '<html lang="en">',
@@ -120,7 +138,8 @@ export function renderPanelHtml(tree: FlowTree): string {
     "</head>",
     "<body>",
     "<h1>Agent Flow Panel</h1>",
-    `<main class="flow">${units}${empty}</main>`,
+    `<main class="flow" id="${FLOW_CONTAINER_ID}">${renderFlowHtml(tree)}</main>`,
+    CLIENT_SCRIPT,
     "</body>",
     "</html>",
   ].join("")
