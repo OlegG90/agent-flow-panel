@@ -110,6 +110,7 @@ function simpleSession(sessionID: string): Event[] {
 describe("SessionTracker", () => {
   it("builds a Unit of Work from events", () => {
     const tracker = new SessionTracker()
+    tracker.setActiveSession("s1")
     for (const event of simpleSession("s1")) {
       tracker.dispatch(event)
     }
@@ -159,9 +160,28 @@ describe("SessionTracker", () => {
     for (const event of simpleSession("b")) {
       tracker.dispatch(event)
     }
-    assert.equal(tracker.tree().sessionID, "b")
-    tracker.setActiveSession("a")
     assert.equal(tracker.tree().sessionID, "a")
+    tracker.setActiveSession("b")
+    assert.equal(tracker.tree().sessionID, "b")
+  })
+
+  it("keeps the active session pinned when child-session events arrive", () => {
+    const tracker = new SessionTracker()
+    for (const event of parentWithLaunch("a", "m2")) {
+      tracker.dispatch(event)
+    }
+    tracker.dispatch(created("b", "a"))
+    tracker.setActiveSession("a")
+
+    for (const event of childSession("b", "research this")) {
+      tracker.dispatch(event)
+    }
+    tracker.dispatch(idle("b"))
+
+    assert.equal(tracker.tree().sessionID, "a")
+    const unit = tracker.tree().units[0]!
+    const launch = unit.steps[0]!.children[0]!.children[0]!
+    assert.equal(launch.children[0]!.content, "research this")
   })
 
   it("returns an empty tree for unknown sessions", () => {

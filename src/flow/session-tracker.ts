@@ -52,7 +52,6 @@ export class SessionTracker {
     if (!sessionID) {
       return
     }
-    this.activeSessionID = sessionID
     let store = this.stores.get(sessionID)
     if (!store) {
       store = new FlowStore(sessionID)
