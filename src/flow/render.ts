@@ -49,9 +49,15 @@ function textLeaf({ node, inner, depth }: WalkContext): string {
 }
 
 function htmlLeaf({ node, inner }: WalkContext): string {
+  const hasChildren = inner ? " has-children" : ""
+  const subtaskClass = node.subtask ? " step--subtask" : ""
+  const toggle = inner ? '<button class="step-toggle" type="button" aria-label="Toggle">▾</button>' : ""
+  const badge = node.subtask ? '<span class="step-badge">sub-agent</span>' : ""
   const parts = [
-    `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}" data-type="${node.type}" data-state="${node.state}">`,
+    `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}${hasChildren}${subtaskClass}" data-type="${node.type}" data-state="${node.state}">`,
+    toggle,
     `<span class="step-label">${escapeHtml(node.label)}</span>`,
+    badge,
     `<span class="step-state">${STATE_LABEL[node.state]}</span>`,
   ]
   if (node.content.length > 0) {
@@ -162,6 +168,12 @@ h1 { font-size: 1.25rem; }
 .step { padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid transparent; margin-top: 0.3rem; }
 .step-label { font-weight: 600; }
 .step-state { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; margin-left: 0.5rem; }
+.step-toggle { cursor: pointer; background: none; border: none; color: var(--muted); font-size: 0.75rem; margin-right: 0.35rem; padding: 0; transition: transform 0.15s; }
+.step.collapsed > .steps--nested { display: none; }
+.step.collapsed > .step-toggle { transform: rotate(-90deg); }
+.step-badge { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; background: var(--subtask-summary); color: #161618; border-radius: 999px; padding: 0.05rem 0.45rem; margin-left: 0.5rem; }
+.step--subtask { background: rgba(192, 132, 252, 0.08); }
+.step--subtask > .steps--nested { border-left-color: var(--subtask-summary); }
 .step-content { color: var(--muted); margin-left: 0.5rem; }
 .step-reasoning { color: var(--muted); font-style: italic; margin-top: 0.25rem; font-size: 0.85rem; }
 .step--user-request { border-color: var(--user-request); }
@@ -189,6 +201,12 @@ const CLIENT_SCRIPT = `
   if (!flow) return;
   const source = new EventSource("${EVENTS_PATH}");
   source.onmessage = (event) => { flow.innerHTML = event.data; };
+  flow.addEventListener("click", (event) => {
+    const button = event.target.closest(".step-toggle");
+    if (!button) return;
+    const step = button.closest(".step");
+    if (step) step.classList.toggle("collapsed");
+  });
 })();
 </script>
 `

@@ -71,8 +71,8 @@ describe("renderPanelHtml", () => {
   it("renders the page with node types, states and content as labels", () => {
     const html = renderPanelHtml(tree)
     assert.match(html, /<li class="step step--user-request step--done"/)
-    assert.match(html, /<li class="step step--model-call step--done"/)
-    assert.match(html, /<li class="step step--tool-call step--done"/)
+    assert.match(html, /<li class="step step--model-call step--done[ "]/)
+    assert.match(html, /<li class="step step--tool-call step--done[ "]/)
     assert.match(html, /<li class="step step--tool-result step--done"/)
     assert.match(html, /<li class="step step--tool-call step--failed"/)
     assert.ok(html.includes("User request"))
@@ -183,5 +183,55 @@ describe("renderTree", () => {
     assert.ok(renderPanelHtml(summaryTree).includes("2 more sub-agents"))
     assert.ok(renderTree(summaryTree).includes("2 more sub-agents"))
     assert.ok(renderTree(summaryTree).includes("agent4, agent5"))
+  })
+
+  it("renders expand/collapse toggles on nodes with children", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes("step-toggle"))
+    assert.ok(html.includes("has-children"))
+  })
+
+  it("marks sub-agent launch nodes visually", () => {
+    const subTree: FlowTree = {
+      sessionID: "s1",
+      units: [
+        {
+          id: "u1",
+          request: {
+            id: "ur",
+            type: "user-request",
+            label: "User request",
+            state: "completed",
+            content: "go",
+            children: [],
+          },
+          steps: [
+            {
+              id: "launch",
+              type: "tool-call",
+              label: "Sub-agent: explore",
+              state: "completed",
+              content: "Desc",
+              subtask: true,
+              children: [
+                {
+                  id: "child-req",
+                  type: "user-request",
+                  label: "User request",
+                  state: "completed",
+                  content: "probe",
+                  children: [],
+                },
+              ],
+            },
+          ],
+          plan: [],
+        },
+      ],
+    }
+    const html = renderPanelHtml(subTree)
+    assert.ok(html.includes("step--subtask"))
+    assert.ok(html.includes("sub-agent"))
+    assert.ok(html.includes("step-toggle"))
   })
 })
