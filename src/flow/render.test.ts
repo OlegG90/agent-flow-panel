@@ -191,6 +191,12 @@ describe("renderTree", () => {
     assert.ok(html.includes("has-children"))
   })
 
+  it("emits a stable data-id on each step for collapse persistence", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes('data-id="mc-m2"'))
+    assert.ok(html.includes('data-id="tr-c1"'))
+  })
+
   it("marks sub-agent launch nodes visually", () => {
     const subTree: FlowTree = {
       sessionID: "s1",

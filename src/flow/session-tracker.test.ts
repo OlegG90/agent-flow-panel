@@ -69,13 +69,23 @@ function subtask(sessionID: string, id: string, messageID: string, agent: string
   )
 }
 
-function parentWithLaunch(sessionID: string, messageID: string): Event[] {
+function parentWithLaunch(sessionID: string, messageID: string, completeTool = true): Event[] {
   return [
     updated(userMessage(sessionID, "m1")),
     partUpdated(part(sessionID, "p1", "m1", { type: "text", text: "delegate" })),
     updated(assistantMessage(sessionID, messageID)),
     partUpdated(part(sessionID, "p2", messageID, { type: "step-start" })),
     subtask(sessionID, "p3", messageID, "explore"),
+    partUpdated(
+      part(sessionID, "p3t", messageID, {
+        type: "tool",
+        callID: `c-${messageID}`,
+        tool: "task",
+        state: completeTool
+          ? { status: "completed", input: {}, output: "done", title: "task", metadata: {}, time: { start: 1, end: 2 } }
+          : { status: "running", input: {}, time: { start: 1 } },
+      }),
+    ),
     partUpdated(
       part(sessionID, "p4", messageID, { type: "step-finish", reason: "done", cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } } }),
     ),
@@ -95,7 +105,7 @@ function childSession(sessionID: string, request: string): Event[] {
   ]
 }
 
-function parentWithManyLaunches(sessionID: string, count: number): Event[] {
+function parentWithManyLaunches(sessionID: string, count: number, completeTools = true): Event[] {
   const events: Event[] = [
     updated(userMessage(sessionID, "m1")),
     partUpdated(part(sessionID, "p1", "m1", { type: "text", text: "delegate a lot" })),
@@ -105,6 +115,18 @@ function parentWithManyLaunches(sessionID: string, count: number): Event[] {
     events.push(updated(assistantMessage(sessionID, messageID)))
     events.push(partUpdated(part(sessionID, `ps${i}`, messageID, { type: "step-start" })))
     events.push(subtask(sessionID, `pt${i}`, messageID, `agent${i + 1}`))
+    events.push(
+      partUpdated(
+        part(sessionID, `ptool${i}`, messageID, {
+          type: "tool",
+          callID: `c${i}`,
+          tool: "task",
+          state: completeTools
+            ? { status: "completed", input: {}, output: "done", title: "task", metadata: {}, time: { start: 1, end: 2 } }
+            : { status: "running", input: {}, time: { start: 1 } },
+        }),
+      ),
+    )
     events.push(
       partUpdated(
         part(sessionID, `pf${i}`, messageID, { type: "step-finish", reason: "done", cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } } }),
@@ -278,22 +300,20 @@ describe("SessionTracker", () => {
     assert.equal(secondLaunch.children[0]!.content, "plan that")
   })
 
-  it("marks the launch node running while the child works and completed after idle", () => {
+  it("does not complete a launch node on the child's transient idle", () => {
     const tracker = new SessionTracker()
-    for (const event of parentWithLaunch("a", "m2")) {
+    for (const event of parentWithLaunch("a", "m2", false)) {
       tracker.dispatch(event)
     }
     tracker.dispatch(created("b", "a"))
     for (const event of childSession("b", "research this")) {
       tracker.dispatch(event)
     }
-
-    const runningUnit = tracker.tree("a").units[0]!
-    assert.equal(runningUnit.steps[0]!.children[0]!.children[0]!.state, "running")
-
     tracker.dispatch(idle("b"))
-    const doneUnit = tracker.tree("a").units[0]!
-    assert.equal(doneUnit.steps[0]!.children[0]!.children[0]!.state, "completed")
+
+    const unit = tracker.tree("a").units[0]!
+    const launch = unit.steps[0]!.children[0]!.children[0]!
+    assert.equal(launch.state, "running")
   })
 
   it("expands nested sub-agents recursively", () => {
@@ -400,18 +420,15 @@ describe("SessionTracker", () => {
     assert.equal(unit.steps[4]!.children[0]!.children.length, 0)
   })
 
-  it("shows the summary running while its children work", () => {
+  it("shows the summary running while a collapsed child's tool still runs", () => {
     const tracker = new SessionTracker()
-    for (const event of parentWithManyLaunches("a", 4)) {
+    for (const event of parentWithManyLaunches("a", 4, false)) {
       tracker.dispatch(event)
     }
     for (let i = 0; i < 4; i++) {
       tracker.dispatch(created(`c${i + 1}`, "a", i + 1))
       for (const event of childSession(`c${i + 1}`, `child ${i + 1}`)) {
         tracker.dispatch(event)
-      }
-      if (i < 3) {
-        tracker.dispatch(idle(`c${i + 1}`))
       }
     }
 
@@ -421,7 +438,16 @@ describe("SessionTracker", () => {
     assert.equal(summary.label, "1 more sub-agent")
     assert.equal(summary.state, "running")
 
-    tracker.dispatch(idle("c4"))
+    tracker.dispatch(
+      partUpdated(
+        part("a", "px", "m5", {
+          type: "tool",
+          callID: "c3",
+          tool: "task",
+          state: { status: "completed", input: {}, output: "done", title: "task", metadata: {}, time: { start: 1, end: 2 } },
+        }),
+      ),
+    )
     assert.equal(tracker.tree("a").units[0]!.steps[4]!.state, "completed")
   })
 })

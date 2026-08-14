@@ -54,7 +54,7 @@ function htmlLeaf({ node, inner }: WalkContext): string {
   const toggle = inner ? '<button class="step-toggle" type="button" aria-label="Toggle">▾</button>' : ""
   const badge = node.subtask ? '<span class="step-badge">sub-agent</span>' : ""
   const parts = [
-    `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}${hasChildren}${subtaskClass}" data-type="${node.type}" data-state="${node.state}">`,
+    `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}${hasChildren}${subtaskClass}" data-id="${escapeHtml(node.id)}" data-type="${node.type}" data-state="${node.state}">`,
     toggle,
     `<span class="step-label">${escapeHtml(node.label)}</span>`,
     badge,
@@ -199,13 +199,26 @@ const CLIENT_SCRIPT = `
 (() => {
   const flow = document.getElementById("${FLOW_CONTAINER_ID}");
   if (!flow) return;
+  const collapsed = new Set();
+  const applyCollapsed = () => {
+    for (const id of collapsed) {
+      const step = flow.querySelector('[data-id="' + id + '"]');
+      if (step) step.classList.add("collapsed");
+    }
+  };
   const source = new EventSource("${EVENTS_PATH}");
-  source.onmessage = (event) => { flow.innerHTML = event.data; };
+  source.onmessage = (event) => { flow.innerHTML = event.data; applyCollapsed(); };
   flow.addEventListener("click", (event) => {
     const button = event.target.closest(".step-toggle");
     if (!button) return;
     const step = button.closest(".step");
-    if (step) step.classList.toggle("collapsed");
+    if (!step) return;
+    const id = step.getAttribute("data-id");
+    step.classList.toggle("collapsed");
+    if (id) {
+      if (step.classList.contains("collapsed")) collapsed.add(id);
+      else collapsed.delete(id);
+    }
   });
 })();
 </script>

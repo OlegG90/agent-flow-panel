@@ -54,7 +54,6 @@ const MAX_DETAILED_SUBTASKS = 3
 export class SessionTracker {
   private readonly stores = new Map<string, FlowStore>()
   private readonly childrenOf = new Map<string, Array<{ id: string; created: number }>>()
-  private readonly idleSessions = new Set<string>()
   private activeSessionID: string | undefined
   private listener: UpdateListener | undefined
 
@@ -67,9 +66,6 @@ export class SessionTracker {
         this.childrenOf.set(info.parentID, children)
       }
       return
-    }
-    if (event.type === "session.idle") {
-      this.idleSessions.add(event.properties.sessionID)
     }
     const sessionID = sessionIDOf(event)
     if (!sessionID) {
@@ -99,7 +95,6 @@ export class SessionTracker {
   reset(): void {
     this.stores.clear()
     this.childrenOf.clear()
-    this.idleSessions.clear()
     this.activeSessionID = undefined
   }
 
@@ -136,18 +131,13 @@ export class SessionTracker {
         this.graft(ref.node, child)
       }
       if (rest.length > 0) {
-        const restChildren: Array<{ id: string }> = []
         for (let i = 0; i < rest.length; i++) {
-          const child = ordered[cursor]
-          if (child) {
-            restChildren.push(child)
-          }
           cursor += 1
         }
         for (const ref of rest) {
           detach(ref.node, ref.parent)
         }
-        unit.steps.push(this.summaryNode(unit.id, rest, restChildren))
+        unit.steps.push(this.summaryNode(unit.id, rest))
       }
     }
     return tree
@@ -158,13 +148,13 @@ export class SessionTracker {
     for (const unit of composed.units) {
       node.children.push(unit.request, ...unit.steps)
     }
-    node.state = this.idleSessions.has(child.id) ? "completed" : "running"
   }
 
-  private summaryNode(unitID: string, refs: LaunchRef[], children: Array<{ id: string }>): StepNode {
+  private summaryNode(unitID: string, refs: LaunchRef[]): StepNode {
     const names = refs.map((ref) => ref.node.label.replace(/^Sub-agent: /, ""))
-    const allDone =
-      children.length === refs.length && children.every((child) => this.idleSessions.has(child.id))
+    const allDone = refs.every(
+      (ref) => ref.node.state === "completed" || ref.node.state === "failed",
+    )
     return {
       id: `summary-${unitID}`,
       type: "subtask-summary",
