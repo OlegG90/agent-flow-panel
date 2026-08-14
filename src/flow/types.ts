@@ -15,6 +15,7 @@ export interface StepNode {
   state: StepState
   content: string
   reasoning?: string
+  subtask?: boolean
   children: StepNode[]
 }
 

@@ -32,6 +32,9 @@ _Avoid_: "результат", "звіт про результат"
 **Session**:
 A conversation between the human and the agent, made up of several Units of Work.
 
+**Subtask**:
+The internal work of a sub-agent, revealed as a nested flow of Units of Work beneath its launch node.
+
 **Unit of Work**:
 One human request together with the full tree of steps the agent performs to satisfy it.
 

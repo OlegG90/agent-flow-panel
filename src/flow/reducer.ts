@@ -1,4 +1,4 @@
-import type { Event, Message, Part, Todo } from "@opencode-ai/sdk"
+import type { Event, Message, Part, Todo, ToolState } from "@opencode-ai/sdk"
 import type { FlowTree, PlanItem, StepNode, StepState, StepType } from "./types.ts"
 
 interface TurnState {
@@ -45,7 +45,7 @@ export class FlowStore {
   private openUnit: UnitState | null = null
   private readonly messageRoles = new Map<string, "user" | "assistant">()
   private readonly toolNodes = new Map<string, StepNode>()
-  private readonly subtaskNodes = new Set<string>()
+  private readonly launchNodes = new Map<string, StepNode>()
   private pendingTodos: Todo[] | undefined
 
   constructor(sessionID: string) {
@@ -242,6 +242,14 @@ export class FlowStore {
   }
 
   private onTool(part: Extract<Part, { type: "tool" }>): void {
+    if (part.tool === "task") {
+      const turn = this.ensureTurn(part.messageID)
+      if (!turn) {
+        return
+      }
+      this.applyToolState(this.ensureLaunchNode(turn, part.messageID), part.state)
+      return
+    }
     let node = this.toolNodes.get(part.callID)
     if (!node) {
       const turn = this.ensureTurn(part.messageID)
@@ -252,7 +260,22 @@ export class FlowStore {
       this.toolNodes.set(part.callID, node)
       turn.modelReply.children.push(node)
     }
-    switch (part.state.status) {
+    this.applyToolState(node, part.state)
+  }
+
+  private ensureLaunchNode(turn: TurnState, messageID: string): StepNode {
+    let node = this.launchNodes.get(messageID)
+    if (!node) {
+      node = makeNode(`launch-${messageID}`, "tool-call", "Tool: task", "pending")
+      node.subtask = true
+      this.launchNodes.set(messageID, node)
+      turn.modelReply.children.push(node)
+    }
+    return node
+  }
+
+  private applyToolState(node: StepNode, state: ToolState): void {
+    switch (state.status) {
       case "pending":
         node.state = "pending"
         break
@@ -261,45 +284,41 @@ export class FlowStore {
         break
       case "completed": {
         node.state = "completed"
-        node.content = part.state.output
-        const hasResult = node.children.some((child) => child.type === "tool-result")
-        if (!hasResult) {
-          node.children.push(
-            makeNode(
-              `tr-${part.callID}`,
-              "tool-result",
-              `Result: ${part.state.title}`,
-              "completed",
-              part.state.output,
-            ),
-          )
+        if (!node.subtask) {
+          node.content = state.output
+          const hasResult = node.children.some((child) => child.type === "tool-result")
+          if (!hasResult) {
+            node.children.push(
+              makeNode(
+                `tr-${node.id}`,
+                "tool-result",
+                `Result: ${state.title}`,
+                "completed",
+                state.output,
+              ),
+            )
+          }
         }
         break
       }
       case "error":
         node.state = "failed"
-        node.content = part.state.error
+        node.content = node.subtask ? `${node.content}\n${state.error}` : state.error
         break
     }
   }
 
   private onSubtask(part: Extract<Part, { type: "subtask" }>): void {
-    if (this.subtaskNodes.has(part.id)) {
-      return
-    }
     const turn = this.ensureTurn(part.messageID)
     if (!turn) {
       return
     }
-    const node = makeNode(
-      `tc-${part.id}`,
-      "tool-call",
-      `Sub-agent: ${part.agent}`,
-      "completed",
-      part.description,
-    )
-    this.subtaskNodes.add(part.id)
-    turn.modelReply.children.push(node)
+    const node = this.ensureLaunchNode(turn, part.messageID)
+    node.label = `Sub-agent: ${part.agent}`
+    node.content = part.description
+    if (node.state === "pending") {
+      node.state = "running"
+    }
   }
 
   private onTodos(todos: Todo[]): void {

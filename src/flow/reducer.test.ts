@@ -156,7 +156,7 @@ describe("FlowStore", () => {
     assert.equal(toolCall.children.length, 0)
   })
 
-  it("records a sub-agent launch as a single tool node", () => {
+  it("records a sub-agent launch as a single marked node", () => {
     const flow = store([
       updated(userMessage("m1")),
       partUpdated(part("p1", "m1", { type: "text", text: "delegate" })),
@@ -170,8 +170,96 @@ describe("FlowStore", () => {
     const node = modelReply.children[0]!
     assert.equal(node.type, "tool-call")
     assert.equal(node.label, "Sub-agent: explore")
+    assert.equal(node.subtask, true)
+    assert.equal(node.state, "running")
+    assert.equal(node.children.length, 0)
+  })
+
+  it("merges a task tool call and a subtask part into one node", () => {
+    const flow = store([
+      updated(userMessage("m1")),
+      partUpdated(part("p1", "m1", { type: "text", text: "delegate" })),
+      updated(assistantMessage("m2")),
+      partUpdated(part("p2", "m2", { type: "step-start" })),
+      partUpdated(
+        part("p3", "m2", { type: "tool", callID: "c1", tool: "task", state: { status: "running", input: {}, time: { start: 1 } } }),
+      ),
+      partUpdated(part("p4", "m2", { type: "subtask", prompt: "do it", description: "A research sub-agent", agent: "explore" })),
+      partUpdated(
+        part("p5", "m2", {
+          type: "tool",
+          callID: "c1",
+          tool: "task",
+          state: { status: "completed", input: {}, output: "done", title: "task", metadata: {}, time: { start: 1, end: 2 } },
+        }),
+      ),
+    ])
+
+    const unit = flow.tree().units[0]!
+    const modelReply = unit.steps[0]!.children[0]!
+    assert.equal(modelReply.children.length, 1)
+    const node = modelReply.children[0]!
+    assert.equal(node.subtask, true)
+    assert.equal(node.label, "Sub-agent: explore")
+    assert.equal(node.content, "A research sub-agent")
     assert.equal(node.state, "completed")
     assert.equal(node.children.length, 0)
+  })
+
+  it("merges when the subtask part arrives before the task tool call", () => {
+    const flow = store([
+      updated(userMessage("m1")),
+      partUpdated(part("p1", "m1", { type: "text", text: "delegate" })),
+      updated(assistantMessage("m2")),
+      partUpdated(part("p2", "m2", { type: "step-start" })),
+      partUpdated(part("p3", "m2", { type: "subtask", prompt: "do it", description: "A research sub-agent", agent: "explore" })),
+      partUpdated(
+        part("p4", "m2", { type: "tool", callID: "c1", tool: "task", state: { status: "running", input: {}, time: { start: 1 } } }),
+      ),
+    ])
+
+    const unit = flow.tree().units[0]!
+    const modelReply = unit.steps[0]!.children[0]!
+    assert.equal(modelReply.children.length, 1)
+    const node = modelReply.children[0]!
+    assert.equal(node.subtask, true)
+    assert.equal(node.state, "running")
+  })
+
+  it("keeps the sub-agent description on a failed launch", () => {
+    const flow = store([
+      updated(userMessage("m1")),
+      partUpdated(part("p1", "m1", { type: "text", text: "delegate" })),
+      updated(assistantMessage("m2")),
+      partUpdated(part("p2", "m2", { type: "step-start" })),
+      partUpdated(part("p3", "m2", { type: "subtask", prompt: "do it", description: "A research sub-agent", agent: "explore" })),
+      partUpdated(
+        part("p4", "m2", { type: "tool", callID: "c1", tool: "task", state: { status: "error", input: {}, error: "boom", time: { start: 1, end: 2 } } }),
+      ),
+    ])
+
+    const unit = flow.tree().units[0]!
+    const node = unit.steps[0]!.children[0]!.children[0]!
+    assert.equal(node.state, "failed")
+    assert.ok(node.content.includes("A research sub-agent"))
+    assert.ok(node.content.includes("boom"))
+  })
+
+  it("leaves regular tool calls unmarked", () => {
+    const flow = store([
+      updated(userMessage("m1")),
+      partUpdated(part("p1", "m1", { type: "text", text: "x" })),
+      updated(assistantMessage("m2")),
+      partUpdated(part("p2", "m2", { type: "step-start" })),
+      partUpdated(
+        part("p3", "m2", { type: "tool", callID: "c1", tool: "bash", state: { status: "completed", input: {}, output: "out", title: "bash", metadata: {}, time: { start: 1, end: 2 } } }),
+      ),
+    ])
+
+    const unit = flow.tree().units[0]!
+    const toolCall = unit.steps[0]!.children[0]!.children[0]!
+    assert.equal(toolCall.subtask, undefined)
+    assert.equal(toolCall.children[0]!.type, "tool-result")
   })
 
   it("previews the plan from todo updates", () => {
