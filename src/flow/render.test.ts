@@ -151,4 +151,37 @@ describe("renderTree", () => {
   it("returns an empty-state message for an empty tree", () => {
     assert.equal(renderTree({ sessionID: "s1", units: [] }), "(no flow recorded)")
   })
+
+  it("renders a sub-agent summary node in both formats", () => {
+    const summaryTree: FlowTree = {
+      sessionID: "s1",
+      units: [
+        {
+          id: "u1",
+          request: {
+            id: "ur",
+            type: "user-request",
+            label: "User request",
+            state: "completed",
+            content: "go",
+            children: [],
+          },
+          steps: [
+            {
+              id: "sm",
+              type: "subtask-summary",
+              label: "2 more sub-agents",
+              state: "completed",
+              content: "agent4, agent5",
+              children: [],
+            },
+          ],
+          plan: [],
+        },
+      ],
+    }
+    assert.ok(renderPanelHtml(summaryTree).includes("2 more sub-agents"))
+    assert.ok(renderTree(summaryTree).includes("2 more sub-agents"))
+    assert.ok(renderTree(summaryTree).includes("agent4, agent5"))
+  })
 })

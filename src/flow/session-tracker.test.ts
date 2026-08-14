@@ -95,6 +95,25 @@ function childSession(sessionID: string, request: string): Event[] {
   ]
 }
 
+function parentWithManyLaunches(sessionID: string, count: number): Event[] {
+  const events: Event[] = [
+    updated(userMessage(sessionID, "m1")),
+    partUpdated(part(sessionID, "p1", "m1", { type: "text", text: "delegate a lot" })),
+  ]
+  for (let i = 0; i < count; i++) {
+    const messageID = `m${i + 2}`
+    events.push(updated(assistantMessage(sessionID, messageID)))
+    events.push(partUpdated(part(sessionID, `ps${i}`, messageID, { type: "step-start" })))
+    events.push(subtask(sessionID, `pt${i}`, messageID, `agent${i + 1}`))
+    events.push(
+      partUpdated(
+        part(sessionID, `pf${i}`, messageID, { type: "step-finish", reason: "done", cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } } }),
+      ),
+    )
+  }
+  return events
+}
+
 function simpleSession(sessionID: string): Event[] {
   return [
     updated(userMessage(sessionID, "m1")),
@@ -349,5 +368,60 @@ describe("SessionTracker", () => {
     const secondLaunch = unit.steps[1]!.children[0]!.children[0]!
     assert.equal(firstLaunch.children[0]!.content, "first child")
     assert.equal(secondLaunch.children[0]!.content, "second child")
+  })
+
+  it("summarizes sub-agents beyond the third in one block", () => {
+    const tracker = new SessionTracker()
+    for (const event of parentWithManyLaunches("a", 5)) {
+      tracker.dispatch(event)
+    }
+    for (let i = 0; i < 5; i++) {
+      tracker.dispatch(created(`c${i + 1}`, "a", i + 1))
+      for (const event of childSession(`c${i + 1}`, `child ${i + 1}`)) {
+        tracker.dispatch(event)
+      }
+      tracker.dispatch(idle(`c${i + 1}`))
+    }
+
+    const unit = tracker.tree("a").units[0]!
+    assert.equal(unit.steps.length, 6)
+    for (let i = 0; i < 3; i++) {
+      const launch = unit.steps[i]!.children[0]!.children[0]!
+      assert.equal(launch.subtask, true)
+      assert.equal(launch.children[0]!.content, `child ${i + 1}`)
+    }
+    const summary = unit.steps[5]!
+    assert.equal(summary.type, "subtask-summary")
+    assert.equal(summary.label, "2 more sub-agents")
+    assert.ok(summary.content.includes("agent4"))
+    assert.ok(summary.content.includes("agent5"))
+    assert.equal(summary.state, "completed")
+    assert.equal(unit.steps[3]!.children[0]!.children.length, 0)
+    assert.equal(unit.steps[4]!.children[0]!.children.length, 0)
+  })
+
+  it("shows the summary running while its children work", () => {
+    const tracker = new SessionTracker()
+    for (const event of parentWithManyLaunches("a", 4)) {
+      tracker.dispatch(event)
+    }
+    for (let i = 0; i < 4; i++) {
+      tracker.dispatch(created(`c${i + 1}`, "a", i + 1))
+      for (const event of childSession(`c${i + 1}`, `child ${i + 1}`)) {
+        tracker.dispatch(event)
+      }
+      if (i < 3) {
+        tracker.dispatch(idle(`c${i + 1}`))
+      }
+    }
+
+    const unit = tracker.tree("a").units[0]!
+    const summary = unit.steps[4]!
+    assert.equal(summary.type, "subtask-summary")
+    assert.equal(summary.label, "1 more sub-agent")
+    assert.equal(summary.state, "running")
+
+    tracker.dispatch(idle("c4"))
+    assert.equal(tracker.tree("a").units[0]!.steps[4]!.state, "completed")
   })
 })

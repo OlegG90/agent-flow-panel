@@ -137,6 +137,7 @@ const STYLES = `
   --tool-result: #94a3b8;
   --answer: #f472b6;
   --failed: #f87171;
+  --subtask-summary: #c084fc;
 }
 * { box-sizing: border-box; }
 body {
@@ -169,6 +170,7 @@ h1 { font-size: 1.25rem; }
 .step--tool-call { border-color: var(--tool-call); }
 .step--tool-result { border-color: var(--tool-result); }
 .step--answer { border-color: var(--answer); }
+.step--subtask-summary { border-color: var(--subtask-summary); }
 .step--done { opacity: 1; }
 .step--pending { opacity: 0.45; border-style: dashed; }
 .step--running { opacity: 1; animation: pulse 1.6s ease-in-out infinite; }
