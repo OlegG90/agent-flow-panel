@@ -23,15 +23,29 @@ async function openInBrowser(url: string): Promise<void> {
   await execFileAsync(opener, [url])
 }
 
+async function openPanelInBrowser(context: { sessionID: string }): Promise<string> {
+  tracker.setActiveSession(context.sessionID)
+  await panelServer.start()
+  const url = panelServer.url()
+  await openInBrowser(url)
+  return url
+}
+
 const openPanel = tool({
-  description: "Open the Agent Flow panel in the default browser.",
+  description: "Open the Agent Flow panel in the default browser, starting fresh from this moment.",
   args: {},
   execute: async (_args, context) => {
     tracker.reset()
-    tracker.setActiveSession(context.sessionID)
-    await panelServer.start()
-    const url = panelServer.url()
-    await openInBrowser(url)
+    const url = await openPanelInBrowser(context)
+    return { title: "Agent Flow panel opened", output: `Opened ${url}` }
+  },
+})
+
+const openPanelKeepHistory = tool({
+  description: "Open the Agent Flow panel in the default browser, keeping the current view.",
+  args: {},
+  execute: async (_args, context) => {
+    const url = await openPanelInBrowser(context)
     return { title: "Agent Flow panel opened", output: `Opened ${url}` }
   },
 })
@@ -52,6 +66,7 @@ const server: Plugin = async () => {
     },
     tool: {
       flow_panel: openPanel,
+      flow_open: openPanelKeepHistory,
       flow_tree: showTree,
     },
   }
