@@ -46,6 +46,10 @@ export class FlowStore {
   private readonly messageRoles = new Map<string, "user" | "assistant">()
   private readonly toolNodes = new Map<string, StepNode>()
   private readonly launchNodes = new Map<string, StepNode>()
+  private readonly turnTaskCalls = new Map<string, string[]>()
+  private readonly turnSubtaskCount = new Map<string, number>()
+  private readonly turnUnmatched = new Map<string, StepNode[]>()
+  private readonly seenSubtaskParts = new Set<string>()
   private pendingTodos: Todo[] | undefined
 
   constructor(sessionID: string) {
@@ -247,7 +251,7 @@ export class FlowStore {
       if (!turn) {
         return
       }
-      this.applyToolState(this.ensureLaunchNode(turn, part.messageID), part.state)
+      this.applyToolState(this.ensureLaunchNode(turn, part), part.state)
       return
     }
     let node = this.toolNodes.get(part.callID)
@@ -263,14 +267,24 @@ export class FlowStore {
     this.applyToolState(node, part.state)
   }
 
-  private ensureLaunchNode(turn: TurnState, messageID: string): StepNode {
-    let node = this.launchNodes.get(messageID)
+  private ensureLaunchNode(turn: TurnState, part: Extract<Part, { type: "tool" }>): StepNode {
+    let node = this.launchNodes.get(part.callID)
     if (!node) {
-      node = makeNode(`launch-${messageID}`, "tool-call", "Tool: task", "pending")
+      const unmatched = this.turnUnmatched.get(part.messageID) ?? []
+      node = unmatched.shift()
+      if (node) {
+        this.launchNodes.set(part.callID, node)
+      }
+    }
+    if (!node) {
+      node = makeNode(`launch-${part.callID}`, "tool-call", "Tool: task", "pending")
       node.subtask = true
-      this.launchNodes.set(messageID, node)
+      this.launchNodes.set(part.callID, node)
       turn.modelReply.children.push(node)
     }
+    const calls = this.turnTaskCalls.get(part.messageID) ?? []
+    calls.push(part.callID)
+    this.turnTaskCalls.set(part.messageID, calls)
     return node
   }
 
@@ -309,15 +323,38 @@ export class FlowStore {
   }
 
   private onSubtask(part: Extract<Part, { type: "subtask" }>): void {
+    if (this.seenSubtaskParts.has(part.id)) {
+      return
+    }
+    this.seenSubtaskParts.add(part.id)
     const turn = this.ensureTurn(part.messageID)
     if (!turn) {
       return
     }
-    const node = this.ensureLaunchNode(turn, part.messageID)
-    node.label = `Sub-agent: ${part.agent}`
-    node.content = part.description
-    if (node.state === "pending") {
-      node.state = "running"
+    const ordinal = this.turnSubtaskCount.get(part.messageID) ?? 0
+    this.turnSubtaskCount.set(part.messageID, ordinal + 1)
+    const callID = (this.turnTaskCalls.get(part.messageID) ?? [])[ordinal]
+    let node = callID ? this.launchNodes.get(callID) : undefined
+    if (!node) {
+      node = makeNode(
+        `subtask-${part.id}`,
+        "tool-call",
+        `Sub-agent: ${part.agent}`,
+        "running",
+        part.description,
+      )
+      node.subtask = true
+      this.launchNodes.set(`subtask-${part.id}`, node)
+      const unmatched = this.turnUnmatched.get(part.messageID) ?? []
+      unmatched.push(node)
+      this.turnUnmatched.set(part.messageID, unmatched)
+      turn.modelReply.children.push(node)
+    } else {
+      node.label = `Sub-agent: ${part.agent}`
+      node.content = part.description
+      if (node.state === "pending") {
+        node.state = "running"
+      }
     }
   }
 

@@ -245,6 +245,58 @@ describe("FlowStore", () => {
     assert.ok(node.content.includes("boom"))
   })
 
+  it("creates a separate node per sub-agent when a turn launches several", () => {
+    const flow = store([
+      updated(userMessage("m1")),
+      partUpdated(part("p1", "m1", { type: "text", text: "delegate two" })),
+      updated(assistantMessage("m2")),
+      partUpdated(part("p2", "m2", { type: "step-start" })),
+      partUpdated(part("p3", "m2", { type: "subtask", prompt: "p", description: "D1", agent: "agent1" })),
+      partUpdated(part("p4", "m2", { type: "subtask", prompt: "p", description: "D2", agent: "agent2" })),
+      partUpdated(
+        part("p5", "m2", { type: "tool", callID: "c1", tool: "task", state: { status: "completed", input: {}, output: "o1", title: "task", metadata: {}, time: { start: 1, end: 2 } } }),
+      ),
+      partUpdated(
+        part("p6", "m2", { type: "tool", callID: "c2", tool: "task", state: { status: "completed", input: {}, output: "o2", title: "task", metadata: {}, time: { start: 1, end: 2 } } }),
+      ),
+    ])
+
+    const unit = flow.tree().units[0]!
+    const reply = unit.steps[0]!.children[0]!
+    assert.equal(reply.children.length, 2)
+    const a = reply.children[0]!
+    const b = reply.children[1]!
+    assert.equal(a.subtask, true)
+    assert.equal(b.subtask, true)
+    assert.equal(a.label, "Sub-agent: agent1")
+    assert.equal(b.label, "Sub-agent: agent2")
+    assert.equal(a.state, "completed")
+    assert.equal(b.state, "completed")
+  })
+
+  it("keeps separate nodes when task calls arrive before subtask parts in one turn", () => {
+    const flow = store([
+      updated(userMessage("m1")),
+      partUpdated(part("p1", "m1", { type: "text", text: "delegate two" })),
+      updated(assistantMessage("m2")),
+      partUpdated(part("p2", "m2", { type: "step-start" })),
+      partUpdated(
+        part("p5", "m2", { type: "tool", callID: "c1", tool: "task", state: { status: "completed", input: {}, output: "o1", title: "task", metadata: {}, time: { start: 1, end: 2 } } }),
+      ),
+      partUpdated(
+        part("p6", "m2", { type: "tool", callID: "c2", tool: "task", state: { status: "completed", input: {}, output: "o2", title: "task", metadata: {}, time: { start: 1, end: 2 } } }),
+      ),
+      partUpdated(part("p3", "m2", { type: "subtask", prompt: "p", description: "D1", agent: "agent1" })),
+      partUpdated(part("p4", "m2", { type: "subtask", prompt: "p", description: "D2", agent: "agent2" })),
+    ])
+
+    const unit = flow.tree().units[0]!
+    const reply = unit.steps[0]!.children[0]!
+    assert.equal(reply.children.length, 2)
+    assert.equal(reply.children[0]!.label, "Sub-agent: agent1")
+    assert.equal(reply.children[1]!.label, "Sub-agent: agent2")
+  })
+
   it("leaves regular tool calls unmarked", () => {
     const flow = store([
       updated(userMessage("m1")),
