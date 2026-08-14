@@ -1,0 +1,216 @@
+{
+  "sessionID": "ses_fixture_summary",
+  "units": [
+    {
+      "id": "msg_many_agents",
+      "request": {
+        "id": "ur-msg_many_agents",
+        "type": "user-request",
+        "label": "User request",
+        "state": "completed",
+        "content": "Запусти п'ять саб-агентів для перевірки різних моделей",
+        "children": []
+      },
+      "steps": [
+        {
+          "id": "mc-many-1",
+          "type": "model-call",
+          "label": "Model call",
+          "state": "completed",
+          "content": "",
+          "children": [
+            {
+              "id": "mr-many-1",
+              "type": "model-reply",
+              "label": "Model reply",
+              "state": "completed",
+              "content": "Запускаю саб-агентів.",
+              "children": [
+                {
+                  "id": "launch-agent1",
+                  "type": "tool-call",
+                  "label": "Sub-agent: agent1",
+                  "state": "completed",
+                  "content": "Agent 1 task",
+                  "subtask": true,
+                  "children": [
+                    {
+                      "id": "ur-agent1",
+                      "type": "user-request",
+                      "label": "User request",
+                      "state": "completed",
+                      "content": "Agent 1 prompt",
+                      "children": []
+                    },
+                    {
+                      "id": "mc-agent1",
+                      "type": "model-call",
+                      "label": "Model call",
+                      "state": "completed",
+                      "content": "",
+                      "children": [
+                        {
+                          "id": "mr-agent1",
+                          "type": "model-reply",
+                          "label": "Model reply",
+                          "state": "completed",
+                          "content": "Agent 1 result",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "id": "ans-agent1",
+                      "type": "answer",
+                      "label": "Answer",
+                      "state": "completed",
+                      "content": "Agent 1 done",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "launch-agent2",
+                  "type": "tool-call",
+                  "label": "Sub-agent: agent2",
+                  "state": "completed",
+                  "content": "Agent 2 task",
+                  "subtask": true,
+                  "children": [
+                    {
+                      "id": "ur-agent2",
+                      "type": "user-request",
+                      "label": "User request",
+                      "state": "completed",
+                      "content": "Agent 2 prompt",
+                      "children": []
+                    },
+                    {
+                      "id": "mc-agent2",
+                      "type": "model-call",
+                      "label": "Model call",
+                      "state": "completed",
+                      "content": "",
+                      "children": [
+                        {
+                          "id": "mr-agent2",
+                          "type": "model-reply",
+                          "label": "Model reply",
+                          "state": "completed",
+                          "content": "Agent 2 result",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "id": "ans-agent2",
+                      "type": "answer",
+                      "label": "Answer",
+                      "state": "completed",
+                      "content": "Agent 2 done",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "launch-agent3",
+                  "type": "tool-call",
+                  "label": "Sub-agent: agent3",
+                  "state": "completed",
+                  "content": "Agent 3 task",
+                  "subtask": true,
+                  "children": [
+                    {
+                      "id": "ur-agent3",
+                      "type": "user-request",
+                      "label": "User request",
+                      "state": "completed",
+                      "content": "Agent 3 prompt",
+                      "children": []
+                    },
+                    {
+                      "id": "mc-agent3",
+                      "type": "model-call",
+                      "label": "Model call",
+                      "state": "completed",
+                      "content": "",
+                      "children": [
+                        {
+                          "id": "mr-agent3",
+                          "type": "model-reply",
+                          "label": "Model reply",
+                          "state": "completed",
+                          "content": "Agent 3 result",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "id": "ans-agent3",
+                      "type": "answer",
+                      "label": "Answer",
+                      "state": "completed",
+                      "content": "Agent 3 done",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mc-many-2",
+          "type": "model-call",
+          "label": "Model call",
+          "state": "completed",
+          "content": "",
+          "children": [
+            {
+              "id": "mr-many-2",
+              "type": "model-reply",
+              "label": "Model reply",
+              "state": "completed",
+              "content": "Решта агентів підсумовано.",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "mc-many-3",
+          "type": "model-call",
+          "label": "Model call",
+          "state": "completed",
+          "content": "",
+          "children": [
+            {
+              "id": "mr-many-3",
+              "type": "model-reply",
+              "label": "Model reply",
+              "state": "completed",
+              "content": "Останній агент також у підсумку.",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "summary-msg_many_agents",
+          "type": "subtask-summary",
+          "label": "2 more sub-agents",
+          "state": "completed",
+          "content": "agent4, agent5",
+          "children": []
+        },
+        {
+          "id": "ans-msg_many_agents",
+          "type": "answer",
+          "label": "Answer",
+          "state": "completed",
+          "content": "П'ять саб-агентів: перші три детально, решту згорнуто.",
+          "children": []
+        }
+      ],
+      "plan": []
+    }
+  ]
+}

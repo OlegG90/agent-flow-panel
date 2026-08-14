@@ -27,6 +27,11 @@ export function createPanelServer(deps: PanelServerDeps): PanelServer {
       res.end(renderPanelHtml(deps.getTree()))
       return
     }
+    if (url.pathname === "/data") {
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+      res.end(JSON.stringify(deps.getTree()))
+      return
+    }
     if (url.pathname === EVENTS_PATH) {
       res.writeHead(200, {
         "content-type": "text/event-stream; charset=utf-8",

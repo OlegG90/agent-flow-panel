@@ -1,0 +1,204 @@
+{
+  "sessionID": "ses_fixture_subagents",
+  "units": [
+    {
+      "id": "msg_parent_request",
+      "request": {
+        "id": "ur-msg_parent_request",
+        "type": "user-request",
+        "label": "User request",
+        "state": "completed",
+        "content": "Порівняй ціни на використання моделей через OpenCode Go, OpenCode Zen та OpenRouter",
+        "children": []
+      },
+      "steps": [
+        {
+          "id": "mc-parent-1",
+          "type": "model-call",
+          "label": "Model call",
+          "state": "completed",
+          "content": "",
+          "children": [
+            {
+              "id": "mr-parent-1",
+              "type": "model-reply",
+              "label": "Model reply",
+              "state": "completed",
+              "content": "Розсилаю два дослідження цін: OpenCode Zen/Go та OpenRouter.",
+              "reasoning": "The user wants a price comparison across three gateways. I need official per-token rates from primary sources.",
+              "children": [
+                {
+                  "id": "launch-msg_openai",
+                  "type": "tool-call",
+                  "label": "Sub-agent: research-openai",
+                  "state": "completed",
+                  "content": "Research OpenCode Zen and OpenCode Go pricing",
+                  "subtask": true,
+                  "children": [
+                    {
+                      "id": "ur-msg_child_openai",
+                      "type": "user-request",
+                      "label": "User request",
+                      "state": "completed",
+                      "content": "Research FACTS ONLY about OpenCode Zen and OpenCode Go pricing from primary sources",
+                      "children": []
+                    },
+                    {
+                      "id": "mc-child-openai-1",
+                      "type": "model-call",
+                      "label": "Model call",
+                      "state": "completed",
+                      "content": "",
+                      "children": [
+                        {
+                          "id": "mr-child-openai-1",
+                          "type": "model-reply",
+                          "label": "Model reply",
+                          "state": "completed",
+                          "content": "Zen sells at cost; Go is a flat subscription.",
+                          "reasoning": "Fetch official docs pages for Zen and Go pricing.",
+                          "children": [
+                            {
+                              "id": "tc-child-openai-wf1",
+                              "type": "tool-call",
+                              "label": "Tool: webfetch",
+                              "state": "completed",
+                              "content": "OpenCode Zen — models gateway pricing",
+                              "children": [
+                                {
+                                  "id": "tr-child-openai-wf1",
+                                  "type": "tool-result",
+                                  "label": "Result: opencode.ai/docs/zen",
+                                  "state": "completed",
+                                  "content": "GPT 5.6 Sol $5/$30; Claude Opus 5 $5/$25; Gemini 3.7 Flash $1.50/$7.50",
+                                  "children": []
+                                }
+                              ]
+                            },
+                            {
+                              "id": "tc-child-openai-wf2",
+                              "type": "tool-call",
+                              "label": "Tool: webfetch",
+                              "state": "completed",
+                              "content": "OpenCode Go — subscription plan",
+                              "children": [
+                                {
+                                  "id": "tr-child-openai-wf2",
+                                  "type": "tool-result",
+                                  "label": "Result: opencode.ai/docs/go",
+                                  "state": "completed",
+                                  "content": "$5 first month, then $10/month; open models only",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "ans-msg_child_openai",
+                      "type": "answer",
+                      "label": "Answer",
+                      "state": "completed",
+                      "content": "OpenCode Zen — pay-as-you-go at cost; OpenCode Go — $5/$10 monthly subscription for open models only.",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "launch-msg_openrouter",
+                  "type": "tool-call",
+                  "label": "Sub-agent: research-openrouter",
+                  "state": "completed",
+                  "content": "Research OpenRouter pricing",
+                  "subtask": true,
+                  "children": [
+                    {
+                      "id": "ur-msg_child_router",
+                      "type": "user-request",
+                      "label": "User request",
+                      "state": "completed",
+                      "content": "Research FACTS ONLY about OpenRouter pricing from primary sources",
+                      "children": []
+                    },
+                    {
+                      "id": "mc-child-router-1",
+                      "type": "model-call",
+                      "label": "Model call",
+                      "state": "completed",
+                      "content": "",
+                      "children": [
+                        {
+                          "id": "mr-child-router-1",
+                          "type": "model-reply",
+                          "label": "Model reply",
+                          "state": "completed",
+                          "content": "No markup on inference; fee on credit purchase only.",
+                          "reasoning": "Check OpenRouter pricing FAQ and the models API for per-token rates.",
+                          "children": [
+                            {
+                              "id": "tc-child-router-wf1",
+                              "type": "tool-call",
+                              "label": "Tool: webfetch",
+                              "state": "completed",
+                              "content": "OpenRouter pricing",
+                              "children": [
+                                {
+                                  "id": "tr-child-router-wf1",
+                                  "type": "tool-result",
+                                  "label": "Result: openrouter.ai/pricing",
+                                  "state": "completed",
+                                  "content": "No markup; 5.5% credit fee; Gemini 3.7 Flash $0.375/$1.875",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "ans-msg_child_router",
+                      "type": "answer",
+                      "label": "Answer",
+                      "state": "completed",
+                      "content": "OpenRouter charges no markup on inference; only a credit-purchase fee.",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mc-parent-2",
+          "type": "model-call",
+          "label": "Model call",
+          "state": "completed",
+          "content": "",
+          "children": [
+            {
+              "id": "mr-parent-2",
+              "type": "model-reply",
+              "label": "Model reply",
+              "state": "completed",
+              "content": "Порівняння готове: для флагманів Zen ≈ OpenRouter ≈ list; для Google/GPT-молодших рівнів OpenRouter найдешевший; Go — підписка лише на open-моделі.",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "ans-msg_parent_request",
+          "type": "answer",
+          "label": "Answer",
+          "state": "completed",
+          "content": "Порівняння готове: для флагманів Zen ≈ OpenRouter ≈ list; для Google/GPT-молодших рівнів OpenRouter найдешевший; Go — підписка лише на open-моделі.",
+          "children": []
+        }
+      ],
+      "plan": []
+    }
+  ]
+}
