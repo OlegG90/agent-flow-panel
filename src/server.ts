@@ -27,6 +27,7 @@ const openPanel = tool({
   description: "Open the Agent Flow panel in the default browser.",
   args: {},
   execute: async (_args, context) => {
+    tracker.reset()
     tracker.setActiveSession(context.sessionID)
     await panelServer.start()
     const url = panelServer.url()

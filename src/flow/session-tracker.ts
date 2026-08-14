@@ -74,6 +74,13 @@ export class SessionTracker {
     this.activeSessionID = sessionID
   }
 
+  reset(): void {
+    this.stores.clear()
+    this.childrenOf.clear()
+    this.idleSessions.clear()
+    this.activeSessionID = undefined
+  }
+
   onUpdate(listener: UpdateListener): void {
     this.listener = listener
   }

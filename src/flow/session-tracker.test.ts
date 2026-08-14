@@ -170,6 +170,24 @@ describe("SessionTracker", () => {
     assert.equal(tracker.tree("nope").units.length, 0)
   })
 
+  it("reset clears accumulated state so the panel starts from now", () => {
+    const tracker = new SessionTracker()
+    for (const event of simpleSession("s1")) {
+      tracker.dispatch(event)
+    }
+    assert.equal(tracker.tree("s1").units.length, 1)
+
+    tracker.reset()
+
+    assert.equal(tracker.tree().units.length, 0)
+    assert.equal(tracker.tree("s1").units.length, 0)
+
+    for (const event of simpleSession("s1")) {
+      tracker.dispatch(event)
+    }
+    assert.equal(tracker.tree("s1").units.length, 1)
+  })
+
   it("grafts a child session's tree under its launch node", () => {
     const tracker = new SessionTracker()
     for (const event of parentWithLaunch("a", "m2")) {
