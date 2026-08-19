@@ -24,6 +24,10 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;")
 }
 
+function attrEscape(value: string): string {
+  return escapeHtml(value).replaceAll("\n", "&#10;")
+}
+
 interface WalkContext {
   node: StepNode
   inner: string
@@ -53,8 +57,10 @@ function htmlLeaf({ node, inner }: WalkContext): string {
   const subtaskClass = node.subtask ? " step--subtask" : ""
   const toggle = inner ? '<button class="step-toggle" type="button" aria-label="Toggle">▾</button>' : ""
   const badge = node.subtask ? '<span class="step-badge">sub-agent</span>' : ""
+  const contentAttr = node.content.length > 0 ? ` data-content="${attrEscape(node.content)}"` : ""
+  const reasoningAttr = node.reasoning ? ` data-reasoning="${attrEscape(node.reasoning)}"` : ""
   const parts = [
-    `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}${hasChildren}${subtaskClass}" data-id="${escapeHtml(node.id)}" data-type="${node.type}" data-state="${node.state}">`,
+    `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}${hasChildren}${subtaskClass}" data-id="${escapeHtml(node.id)}" data-type="${node.type}" data-state="${node.state}"${contentAttr}${reasoningAttr}>`,
     toggle,
     `<span class="step-label">${escapeHtml(node.label)}</span>`,
     badge,
@@ -144,6 +150,7 @@ const STYLES = `
   --answer: #f472b6;
   --failed: #f87171;
   --subtask-summary: #c084fc;
+  --selected: #22d3ee;
 }
 * { box-sizing: border-box; }
 body {
@@ -192,33 +199,146 @@ h1 { font-size: 1.25rem; }
 .plan-item { font-size: 0.8rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.6rem; }
 .plan-item[data-state="completed"] { color: var(--model-reply); border-color: var(--model-reply); }
 .plan-item[data-state="in-progress"] { color: var(--tool-call); border-color: var(--tool-call); }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.topbar h1 { margin: 0; }
+#details-toggle { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.8rem; }
+#details-toggle:hover { border-color: var(--selected); color: var(--selected); }
+.layout { display: flex; gap: 1rem; align-items: flex-start; }
+.flow { flex: 3; min-width: 0; }
+.details {
+  flex: 2;
+  min-width: 0;
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+}
+.details-empty { color: var(--muted); margin: 0; }
+.layout.details-hidden .details { display: none; }
+.step--selected { outline: 2px solid var(--selected); background: rgba(34, 211, 238, 0.08); }
+.details-header { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+.details-type { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid; border-radius: 999px; padding: 0.05rem 0.5rem; }
+.details-state { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; }
+.details-label { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.25rem; }
+.details-id { color: var(--muted); font-size: 0.75rem; font-family: monospace; word-break: break-all; }
+.details-section { margin-top: 0.75rem; }
+.details-section h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 0.25rem; }
+.details-content { white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; }
+.details-reasoning { white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; color: var(--muted); font-style: italic; }
+@media (max-width: 760px) {
+  .layout { display: block; position: relative; }
+  .details {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    max-height: none;
+    height: 100%;
+  }
+  #details-toggle { position: fixed; top: 0.75rem; right: 0.75rem; z-index: 20; }
+}
 `
 
 const CLIENT_SCRIPT = `
 <script>
 (() => {
   const flow = document.getElementById("${FLOW_CONTAINER_ID}");
-  if (!flow) return;
+  const details = document.getElementById("details");
+  const layout = document.getElementById("layout");
+  const detailsToggle = document.getElementById("details-toggle");
+  if (!flow || !details || !layout || !detailsToggle) return;
   const collapsed = new Set();
+  let selectedId = null;
+  const esc = (value) => String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
   const applyCollapsed = () => {
     for (const id of collapsed) {
       const step = flow.querySelector('[data-id="' + id + '"]');
       if (step) step.classList.add("collapsed");
     }
   };
-  const source = new EventSource("${EVENTS_PATH}");
-  source.onmessage = (event) => { flow.innerHTML = event.data; applyCollapsed(); };
-  flow.addEventListener("click", (event) => {
-    const button = event.target.closest(".step-toggle");
-    if (!button) return;
-    const step = button.closest(".step");
-    if (!step) return;
-    const id = step.getAttribute("data-id");
-    step.classList.toggle("collapsed");
-    if (id) {
-      if (step.classList.contains("collapsed")) collapsed.add(id);
-      else collapsed.delete(id);
+  const emptyDetails = () => {
+    details.innerHTML = '<p class="details-empty">Select a step to see its details.</p>';
+  };
+  const showDetails = (step) => {
+    const id = step.getAttribute("data-id") || "";
+    const type = step.getAttribute("data-type") || "";
+    const state = step.getAttribute("data-state") || "";
+    const labelEl = step.querySelector(".step-label");
+    const label = labelEl ? labelEl.textContent : "";
+    const content = step.getAttribute("data-content") || "";
+    const reasoning = step.getAttribute("data-reasoning") || "";
+    const header =
+      '<div class="details-header">' +
+      '<span class="details-type step--' + esc(type) + '">' + esc(type) + "</span>" +
+      '<span class="details-state">' + esc(state) + "</span></div>";
+    const body =
+      '<div class="details-label">' + esc(label) + "</div>" +
+      '<div class="details-id">' + esc(id) + "</div>";
+    const contentSection = content
+      ? '<div class="details-section"><h3>Content</h3><div class="details-content">' + esc(content) + "</div></div>"
+      : "";
+    const reasoningSection = reasoning
+      ? '<div class="details-section"><h3>Reasoning</h3><div class="details-reasoning">' + esc(reasoning) + "</div></div>"
+      : "";
+    details.innerHTML = header + body + contentSection + reasoningSection;
+  };
+  const applySelected = () => {
+    if (!selectedId) return;
+    const step = flow.querySelector('[data-id="' + selectedId + '"]');
+    if (!step) {
+      selectedId = null;
+      emptyDetails();
+      return;
     }
+    step.classList.add("step--selected");
+    showDetails(step);
+  };
+  const select = (step) => {
+    const id = step.getAttribute("data-id");
+    const previous = flow.querySelector(".step--selected");
+    if (previous) previous.classList.remove("step--selected");
+    if (selectedId === id) {
+      selectedId = null;
+      emptyDetails();
+      return;
+    }
+    selectedId = id;
+    step.classList.add("step--selected");
+    layout.classList.remove("details-hidden");
+    detailsToggle.textContent = "Hide details";
+    showDetails(step);
+  };
+  const source = new EventSource("${EVENTS_PATH}");
+  source.onmessage = (event) => { flow.innerHTML = event.data; applyCollapsed(); applySelected(); };
+  flow.addEventListener("click", (event) => {
+    const toggle = event.target.closest(".step-toggle");
+    if (toggle) {
+      const step = toggle.closest(".step");
+      if (!step) return;
+      const id = step.getAttribute("data-id");
+      step.classList.toggle("collapsed");
+      if (id) {
+        if (step.classList.contains("collapsed")) collapsed.add(id);
+        else collapsed.delete(id);
+      }
+      return;
+    }
+    const labelEl = event.target.closest(".step-label");
+    if (!labelEl) return;
+    const step = labelEl.closest(".step");
+    if (step) select(step);
+  });
+  detailsToggle.addEventListener("click", () => {
+    const hidden = layout.classList.toggle("details-hidden");
+    detailsToggle.textContent = hidden ? "Show details" : "Hide details";
   });
 })();
 </script>
@@ -234,8 +354,14 @@ export function renderPanelHtml(tree: FlowTree): string {
     `<style>${STYLES}</style>`,
     "</head>",
     "<body>",
+    '<header class="topbar">',
     "<h1>Agent Flow Panel</h1>",
-    `<main class="flow" id="${FLOW_CONTAINER_ID}">${renderFlowHtml(tree)}</main>`,
+    '<button id="details-toggle" type="button">Hide details</button>',
+    "</header>",
+    '<main class="layout" id="layout">',
+    `<div class="flow" id="${FLOW_CONTAINER_ID}">${renderFlowHtml(tree)}</div>`,
+    '<aside class="details" id="details"><p class="details-empty">Select a step to see its details.</p></aside>',
+    "</main>",
     CLIENT_SCRIPT,
     "</body>",
     "</html>",

@@ -116,6 +116,41 @@ describe("renderPanelHtml", () => {
     assert.ok(html.includes('new EventSource("/events")'))
   })
 
+  it("renders a two-zone layout with a 60/40 split and a details pane", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes('<main class="layout" id="layout">'))
+    assert.ok(html.includes('<div class="flow" id="flow"'))
+    assert.ok(html.includes('<aside class="details" id="details"'))
+    assert.ok(html.includes(".flow { flex: 3;"))
+    assert.ok(html.includes(".details {"))
+    assert.ok(html.includes("Select a step to see its details."))
+  })
+
+  it("renders an always-present details toggle button", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes('<button id="details-toggle" type="button">Hide details</button>'))
+    assert.ok(html.includes("detailsToggle.addEventListener"))
+    assert.ok(html.includes(".layout.details-hidden .details { display: none; }"))
+  })
+
+  it("embeds full content and reasoning as data attributes for the details pane", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes('data-content="Here are the files"'))
+    assert.ok(html.includes('data-reasoning="User asked for a listing"'))
+    assert.ok(html.includes("boom &lt;script&gt;alert(1)&lt;/script&gt;"))
+  })
+
+  it("keeps data attributes on a single line for SSE transport", () => {
+    const flowHtml = renderFlowHtml(tree)
+    assert.ok(!flowHtml.includes("\n"))
+  })
+
+  it("marks the selected step styling for highlight", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes(".step--selected {"))
+    assert.ok(html.includes('step.classList.add("step--selected")'))
+  })
+
   it("renders the flow html as a single line for SSE transport", () => {
     const flowHtml = renderFlowHtml(tree)
     assert.ok(!flowHtml.includes("\n"))
@@ -189,6 +224,13 @@ describe("renderTree", () => {
     const html = renderPanelHtml(tree)
     assert.ok(html.includes("step-toggle"))
     assert.ok(html.includes("has-children"))
+  })
+
+  it("keeps the collapse toggle handler alongside the selection handler", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes('event.target.closest(".step-toggle")'))
+    assert.ok(html.includes('step.classList.toggle("collapsed")'))
+    assert.ok(html.includes('event.target.closest(".step-label")'))
   })
 
   it("emits a stable data-id on each step for collapse persistence", () => {
