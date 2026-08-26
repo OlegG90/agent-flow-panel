@@ -5,6 +5,7 @@ import { Type } from "typebox"
 import { renderTree } from "../../flow/render.ts"
 import { createPanelServer } from "../../server/panel-server.ts"
 import { PiSessionTracker } from "./pi-session-tracker.ts"
+import { VERSION } from "../../version.ts"
 
 const execFileAsync = promisify(execFile)
 
@@ -47,6 +48,7 @@ function objectField(value: unknown, key: string): Record<string, unknown> | und
 }
 
 export default function piExtension(pi: ExtensionAPI): void {
+  console.log(`[flow-panel] v${VERSION} loaded`)
   const tracker = new PiSessionTracker()
   const panelServer = createPanelServer({
     getTree: () => tracker.tree(),

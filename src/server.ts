@@ -5,6 +5,7 @@ import { tool } from "@opencode-ai/plugin"
 import { SessionTracker } from "./flow/session-tracker.ts"
 import { renderTree } from "./flow/render.ts"
 import { createPanelServer } from "./server/panel-server.ts"
+import { VERSION } from "./version.ts"
 
 const execFileAsync = promisify(execFile)
 const tracker = new SessionTracker()
@@ -75,6 +76,10 @@ const server: Plugin = async () => {
 const module: PluginModule = {
   id: "flow-panel",
   server,
-}
+} as PluginModule & { version: string }
+
+// Expose version for tooling and panel
+;(module as unknown as Record<string, unknown>).version = VERSION
 
 export default module
+export { VERSION }

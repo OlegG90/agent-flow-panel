@@ -1,4 +1,5 @@
 import type { FlowTree, PlanItem, StepNode, UnitOfWork } from "./types.ts"
+import { VERSION } from "../version.ts"
 
 export const FLOW_CONTAINER_ID = "flow"
 export const EVENTS_PATH = "/events"
@@ -352,12 +353,12 @@ export function renderPanelHtml(tree: FlowTree): string {
     '<html lang="en">',
     "<head>",
     '<meta charset="utf-8" />',
-    "<title>Agent Flow Panel</title>",
+    `<title>Agent Flow Panel v${VERSION}</title>`,
     `<style>${STYLES}</style>`,
     "</head>",
     "<body>",
     '<header class="topbar">',
-    "<h1>Agent Flow Panel</h1>",
+    `<h1>Agent Flow Panel <span style="font-size:0.7em;font-weight:400;color:var(--muted)">v${VERSION}</span></h1>`,
     '<button id="details-toggle" type="button">Hide details</button>',
     "</header>",
     '<main class="layout" id="layout">',
