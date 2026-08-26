@@ -6,6 +6,7 @@ export type StepType =
   | "tool-result"
   | "answer"
   | "subtask-summary"
+  | "orchestration"
 
 export type StepState = "pending" | "running" | "completed" | "failed"
 

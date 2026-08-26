@@ -1,0 +1,209 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Agent Flow Panel</title><style>
+:root {
+  color-scheme: dark;
+  --bg: #161618;
+  --panel: #1f1f23;
+  --border: #3f3f46;
+  --text: #e4e4e7;
+  --muted: #a1a1aa;
+  --user-request: #60a5fa;
+  --model-call: #a78bfa;
+  --model-reply: #34d399;
+  --tool-call: #fbbf24;
+  --tool-result: #94a3b8;
+  --answer: #f472b6;
+  --failed: #f87171;
+  --subtask-summary: #c084fc;
+  --orchestration: #6b7280;
+  --selected: #22d3ee;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 2rem;
+  background: var(--bg);
+  color: var(--text);
+}
+h1 { font-size: 1.25rem; }
+.empty { color: var(--muted); }
+.unit {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.unit-title { font-size: 1rem; margin-top: 0; }
+.steps { list-style: none; margin: 0; padding: 0; }
+.steps--nested { margin-left: 1.25rem; margin-top: 0.4rem; border-left: 2px solid var(--border); padding-left: 0.75rem; }
+.step { padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid transparent; margin-top: 0.3rem; }
+.step-label { font-weight: 600; }
+.step-state { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; margin-left: 0.5rem; }
+.step-toggle { cursor: pointer; background: none; border: none; color: var(--muted); font-size: 0.75rem; margin-right: 0.35rem; padding: 0; transition: transform 0.15s; }
+.step.collapsed > .steps--nested { display: none; }
+.step.collapsed > .step-toggle { transform: rotate(-90deg); }
+.step-badge { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; background: var(--subtask-summary); color: #161618; border-radius: 999px; padding: 0.05rem 0.45rem; margin-left: 0.5rem; }
+.step--subtask { background: rgba(192, 132, 252, 0.08); }
+.step--subtask > .steps--nested { border-left-color: var(--subtask-summary); }
+.step-content { color: var(--muted); margin-left: 0.5rem; }
+.step-reasoning { color: var(--muted); font-style: italic; margin-top: 0.25rem; font-size: 0.85rem; }
+.step--user-request { border-color: var(--user-request); }
+.step--model-call { border-color: var(--model-call); }
+.step--model-reply { border-color: var(--model-reply); }
+.step--tool-call { border-color: var(--tool-call); }
+.step--tool-result { border-color: var(--tool-result); }
+.step--answer { border-color: var(--answer); }
+.step--subtask-summary { border-color: var(--subtask-summary); }
+.step--orchestration { border-color: var(--orchestration); border-style: dashed; opacity: 0.6; }
+.step--done { opacity: 1; }
+.step--pending { opacity: 0.45; border-style: dashed; }
+.step--running { opacity: 1; animation: pulse 1.6s ease-in-out infinite; }
+.step--failed { border-color: var(--failed); }
+@keyframes pulse { 50% { opacity: 0.5; } }
+.plan { list-style: none; padding: 0; margin: 0.75rem 0 0; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.plan-item { font-size: 0.8rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.6rem; }
+.plan-item[data-state="completed"] { color: var(--model-reply); border-color: var(--model-reply); }
+.plan-item[data-state="in-progress"] { color: var(--tool-call); border-color: var(--tool-call); }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.topbar h1 { margin: 0; }
+#details-toggle { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.8rem; }
+#details-toggle:hover { border-color: var(--selected); color: var(--selected); }
+.layout { display: flex; gap: 1rem; align-items: flex-start; }
+.flow { flex: 3; min-width: 0; }
+.details {
+  flex: 2;
+  min-width: 0;
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+}
+.details-empty { color: var(--muted); margin: 0; }
+.layout.details-hidden .details { display: none; }
+.step--selected { outline: 2px solid var(--selected); background: rgba(34, 211, 238, 0.08); }
+.details-header { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+.details-type { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid; border-radius: 999px; padding: 0.05rem 0.5rem; }
+.details-state { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; }
+.details-label { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.25rem; }
+.details-id { color: var(--muted); font-size: 0.75rem; font-family: monospace; word-break: break-all; }
+.details-section { margin-top: 0.75rem; }
+.details-section h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 0.25rem; }
+.details-content { white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; }
+.details-reasoning { white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; color: var(--muted); font-style: italic; }
+@media (max-width: 760px) {
+  .layout { display: block; position: relative; }
+  .details {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    max-height: none;
+    height: 100%;
+  }
+  #details-toggle { position: fixed; top: 0.75rem; right: 0.75rem; z-index: 20; }
+}
+</style></head><body><header class="topbar"><h1>Agent Flow Panel</h1><button id="details-toggle" type="button">Hide details</button></header><main class="layout" id="layout"><div class="flow" id="flow"><section class="unit"><h2 class="unit-title">Unit of Work #1</h2><ol class="steps"><li class="step step--user-request step--done" data-id="ur-msg_parent_request" data-type="user-request" data-state="completed" data-content="Порівняй ціни на використання моделей через OpenCode Go, OpenCode Zen та OpenRouter"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Порівняй ціни на використання моделей через OpenCode Go, OpenCode Zen та OpenRouter</span></li><li class="step step--model-call step--done has-children" data-id="mc-parent-1" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done has-children" data-id="mr-parent-1" data-type="model-reply" data-state="completed" data-content="Розсилаю два дослідження цін: OpenCode Zen/Go та OpenRouter." data-reasoning="The user wants a price comparison across three gateways. I need official per-token rates from primary sources."><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Розсилаю два дослідження цін: OpenCode Zen/Go та OpenRouter.</span><div class="step-reasoning">The user wants a price comparison across three gateways. I need official per-tok…</div><ol class="steps steps--nested"><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-msg_openai" data-type="tool-call" data-state="completed" data-content="Research OpenCode Zen and OpenCode Go pricing"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: research-openai</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Research OpenCode Zen and OpenCode Go pricing</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-msg_child_openai" data-type="user-request" data-state="completed" data-content="Research FACTS ONLY about OpenCode Zen and OpenCode Go pricing from primary sources"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Research FACTS ONLY about OpenCode Zen and OpenCode Go pricing from primary sources</span></li><li class="step step--model-call step--done has-children" data-id="mc-child-openai-1" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done has-children" data-id="mr-child-openai-1" data-type="model-reply" data-state="completed" data-content="Zen sells at cost; Go is a flat subscription." data-reasoning="Fetch official docs pages for Zen and Go pricing."><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Zen sells at cost; Go is a flat subscription.</span><div class="step-reasoning">Fetch official docs pages for Zen and Go pricing.</div><ol class="steps steps--nested"><li class="step step--tool-call step--done has-children" data-id="tc-child-openai-wf1" data-type="tool-call" data-state="completed" data-content="OpenCode Zen — models gateway pricing"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Tool: webfetch</span><span class="step-state">done</span><span class="step-content">OpenCode Zen — models gateway pricing</span><ol class="steps steps--nested"><li class="step step--tool-result step--done" data-id="tr-child-openai-wf1" data-type="tool-result" data-state="completed" data-content="GPT 5.6 Sol $5/$30; Claude Opus 5 $5/$25; Gemini 3.7 Flash $1.50/$7.50"><span class="step-label">Result: opencode.ai/docs/zen</span><span class="step-state">done</span><span class="step-content">GPT 5.6 Sol $5/$30; Claude Opus 5 $5/$25; Gemini 3.7 Flash $1.50/$7.50</span></li></ol></li><li class="step step--tool-call step--done has-children" data-id="tc-child-openai-wf2" data-type="tool-call" data-state="completed" data-content="OpenCode Go — subscription plan"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Tool: webfetch</span><span class="step-state">done</span><span class="step-content">OpenCode Go — subscription plan</span><ol class="steps steps--nested"><li class="step step--tool-result step--done" data-id="tr-child-openai-wf2" data-type="tool-result" data-state="completed" data-content="$5 first month, then $10/month; open models only"><span class="step-label">Result: opencode.ai/docs/go</span><span class="step-state">done</span><span class="step-content">$5 first month, then $10/month; open models only</span></li></ol></li></ol></li></ol></li><li class="step step--answer step--done" data-id="ans-msg_child_openai" data-type="answer" data-state="completed" data-content="OpenCode Zen — pay-as-you-go at cost; OpenCode Go — $5/$10 monthly subscription for open models only."><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">OpenCode Zen — pay-as-you-go at cost; OpenCode Go — $5/$10 monthly subscription for open models only.</span></li></ol></li><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-msg_openrouter" data-type="tool-call" data-state="completed" data-content="Research OpenRouter pricing"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: research-openrouter</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Research OpenRouter pricing</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-msg_child_router" data-type="user-request" data-state="completed" data-content="Research FACTS ONLY about OpenRouter pricing from primary sources"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Research FACTS ONLY about OpenRouter pricing from primary sources</span></li><li class="step step--model-call step--done has-children" data-id="mc-child-router-1" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done has-children" data-id="mr-child-router-1" data-type="model-reply" data-state="completed" data-content="No markup on inference; fee on credit purchase only." data-reasoning="Check OpenRouter pricing FAQ and the models API for per-token rates."><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">No markup on inference; fee on credit purchase only.</span><div class="step-reasoning">Check OpenRouter pricing FAQ and the models API for per-token rates.</div><ol class="steps steps--nested"><li class="step step--tool-call step--done has-children" data-id="tc-child-router-wf1" data-type="tool-call" data-state="completed" data-content="OpenRouter pricing"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Tool: webfetch</span><span class="step-state">done</span><span class="step-content">OpenRouter pricing</span><ol class="steps steps--nested"><li class="step step--tool-result step--done" data-id="tr-child-router-wf1" data-type="tool-result" data-state="completed" data-content="No markup; 5.5% credit fee; Gemini 3.7 Flash $0.375/$1.875"><span class="step-label">Result: openrouter.ai/pricing</span><span class="step-state">done</span><span class="step-content">No markup; 5.5% credit fee; Gemini 3.7 Flash $0.375/$1.875</span></li></ol></li></ol></li></ol></li><li class="step step--answer step--done" data-id="ans-msg_child_router" data-type="answer" data-state="completed" data-content="OpenRouter charges no markup on inference; only a credit-purchase fee."><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">OpenRouter charges no markup on inference; only a credit-purchase fee.</span></li></ol></li></ol></li></ol></li><li class="step step--model-call step--done has-children" data-id="mc-parent-2" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-parent-2" data-type="model-reply" data-state="completed" data-content="Порівняння готове: для флагманів Zen ≈ OpenRouter ≈ list; для Google/GPT-молодших рівнів OpenRouter найдешевший; Go — підписка лише на open-моделі."><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Порівняння готове: для флагманів Zen ≈ OpenRouter ≈ list; для Google/GPT-молодших рівнів OpenRouter найдешевший; Go — пі…</span></li></ol></li><li class="step step--answer step--done" data-id="ans-msg_parent_request" data-type="answer" data-state="completed" data-content="Порівняння готове: для флагманів Zen ≈ OpenRouter ≈ list; для Google/GPT-молодших рівнів OpenRouter найдешевший; Go — підписка лише на open-моделі."><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">Порівняння готове: для флагманів Zen ≈ OpenRouter ≈ list; для Google/GPT-молодших рівнів OpenRouter найдешевший; Go — пі…</span></li></ol></section></div><aside class="details" id="details"><p class="details-empty">Select a step to see its details.</p></aside></main>
+<script>
+(() => {
+  const flow = document.getElementById("flow");
+  const details = document.getElementById("details");
+  const layout = document.getElementById("layout");
+  const detailsToggle = document.getElementById("details-toggle");
+  if (!flow || !details || !layout || !detailsToggle) return;
+  const collapsed = new Set();
+  let selectedId = null;
+  const esc = (value) => String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+  const applyCollapsed = () => {
+    for (const id of collapsed) {
+      const step = flow.querySelector('[data-id="' + id + '"]');
+      if (step) step.classList.add("collapsed");
+    }
+  };
+  const emptyDetails = () => {
+    details.innerHTML = '<p class="details-empty">Select a step to see its details.</p>';
+  };
+  const showDetails = (step) => {
+    const id = step.getAttribute("data-id") || "";
+    const type = step.getAttribute("data-type") || "";
+    const state = step.getAttribute("data-state") || "";
+    const labelEl = step.querySelector(".step-label");
+    const label = labelEl ? labelEl.textContent : "";
+    const content = step.getAttribute("data-content") || "";
+    const reasoning = step.getAttribute("data-reasoning") || "";
+    const header =
+      '<div class="details-header">' +
+      '<span class="details-type step--' + esc(type) + '">' + esc(type) + "</span>" +
+      '<span class="details-state">' + esc(state) + "</span></div>";
+    const body =
+      '<div class="details-label">' + esc(label) + "</div>" +
+      '<div class="details-id">' + esc(id) + "</div>";
+    const contentSection = content
+      ? '<div class="details-section"><h3>Content</h3><div class="details-content">' + esc(content) + "</div></div>"
+      : "";
+    const reasoningSection = reasoning
+      ? '<div class="details-section"><h3>Reasoning</h3><div class="details-reasoning">' + esc(reasoning) + "</div></div>"
+      : "";
+    details.innerHTML = header + body + contentSection + reasoningSection;
+  };
+  const applySelected = () => {
+    if (!selectedId) return;
+    const step = flow.querySelector('[data-id="' + selectedId + '"]');
+    if (!step) {
+      selectedId = null;
+      emptyDetails();
+      return;
+    }
+    step.classList.add("step--selected");
+    showDetails(step);
+  };
+  const select = (step) => {
+    const id = step.getAttribute("data-id");
+    const previous = flow.querySelector(".step--selected");
+    if (previous) previous.classList.remove("step--selected");
+    if (selectedId === id) {
+      selectedId = null;
+      emptyDetails();
+      return;
+    }
+    selectedId = id;
+    step.classList.add("step--selected");
+    layout.classList.remove("details-hidden");
+    detailsToggle.textContent = "Hide details";
+    showDetails(step);
+  };
+  const source = new EventSource("/events");
+  source.onmessage = (event) => { flow.innerHTML = event.data; applyCollapsed(); applySelected(); };
+  flow.addEventListener("click", (event) => {
+    const toggle = event.target.closest(".step-toggle");
+    if (toggle) {
+      const step = toggle.closest(".step");
+      if (!step) return;
+      const id = step.getAttribute("data-id");
+      step.classList.toggle("collapsed");
+      if (id) {
+        if (step.classList.contains("collapsed")) collapsed.add(id);
+        else collapsed.delete(id);
+      }
+      return;
+    }
+    const labelEl = event.target.closest(".step-label");
+    if (!labelEl) return;
+    const step = labelEl.closest(".step");
+    if (step) select(step);
+  });
+  detailsToggle.addEventListener("click", () => {
+    const hidden = layout.classList.toggle("details-hidden");
+    detailsToggle.textContent = hidden ? "Show details" : "Hide details";
+  });
+})();
+</script>
+</body></html>

@@ -1,44 +1,46 @@
 # Agent Flow Panel
 
-OpenCode plugin that visualizes an agent's work as a live flowchart panel in the browser: step tree on the left, full details of a selected step on the right.
+Plugin that visualizes agent work as a **live flowchart in the browser**: step tree on the left, selected step details on the right. A single codebase runs on **OpenCode**, **Pi**, and **oh-my-pi / omp**.
 
-## Встановлення
+![Panel preview — sub-agent session](docs/previews/panel-preview-subagent-session.html)
+> Static previews: [`docs/previews/panel-preview-subagent-session.html`](docs/previews/panel-preview-subagent-session.html) · [`docs/previews/panel-preview-subagent-summary.html`](docs/previews/panel-preview-subagent-summary.html) (generated from `fixtures/`)
 
-1. Скопіювати репозиторій і встановити залежності:
+## What it is
 
-   ```sh
-   npm install
-   ```
+Each human request is a **Unit of Work** — a tree `UserRequest → ModelCall → ModelReply → ToolCall → ToolResult → Answer`. Sub-agents expand under their `ToolCall{subtask}`, >3 collapse into `Sub-agent summary`, empty `oh-my-pi` turns become `Orchestration` (dashed). The panel updates via SSE without reload.
 
-2. Зібрати плагін у самодостатній бандл:
+Details: [`docs/concepts.md`](docs/concepts.md) (step types, states), original glossary — [`CONTEXT.md`](CONTEXT.md).
 
-   ```sh
-   npm run build
-   ```
+## Quick start
 
-   Результат — `dist/server.js`.
+```sh
+npm install
+npm run build   # → dist/server.js (OpenCode) + dist/extension.js (Pi/omp)
+```
 
-3. Підключити плагін в OpenCode. Локально в проєкті (`opencode.json`):
+| Agent | How to connect |
+|---|---|
+| **OpenCode** | `opencode.json` → `"plugin": ["./src/server.ts"]` (dev) or `"plugin": ["file:///…/dist/server.js"]` |
+| **Pi** | `pi -e C:/path/to/dist/extension.js` or `~/.pi/agent/extensions/` |
+| **omp** | `omp -e C:/path/to/dist/extension.js` (recommended) or `omp plugin link` |
 
-   ```json
-   {
-     "plugin": ["./src/server.ts"]
-   }
-   ```
+Full guide: [`docs/installation.md`](docs/installation.md) · Architecture: [`docs/architecture.md`](docs/architecture.md) · Panel: [`docs/panel.md`](docs/panel.md) · ADRs: [`docs/adr/`](docs/adr/) · API research: [`docs/opencode-plugin-system-research.md`](docs/opencode-plugin-system-research.md)
 
-   Або глобально для всіх проєктів (`~/.config/opencode/opencode.jsonc`), вказавши абсолютний шлях до зібраного бандла:
+## Usage
 
-   ```jsonc
-   {
-     "plugin": ["file:///C:/шлях/до/проєкту/dist/server.js"]
-   }
-   ```
+- `/flow` / `flow_open` — open panel (keep history)
+- `/flow-reset` / `flow_panel` — open from scratch
+- `/flow_tree` / `flow_tree` — text tree in chat
 
-4. Перезапустити OpenCode. Плагін надає інструменти `flow_panel` (відкрити панель з нуля), `flow_open` (відкрити панель із збереженням поточного виду) та `flow_tree` (показати дерево кроків текстом).
+Panel: `http://127.0.0.1:<port>/` (`/` HTML, `/data` JSON, `/events` SSE). Click `step-label` for details, `▾` to collapse.
 
-## Розробка
+## Development
 
-- `npm test` — тести (Node test runner)
-- `npm run typecheck` — перевірка типів
-- `npm run lint` — ESLint
-- `npm run panel:fixture` — згенерувати статичне превʼю панелі з фікстури у браузері
+```sh
+npm test            # 81 tests (node --test)
+npm run typecheck
+npm run lint
+npm run panel:fixture  # → docs/previews/panel-preview-*.html
+```
+
+Layout: `src/flow/` (shared), `src/server/panel-server.ts`, `src/adapters/opencode|pi/`, `src/server.ts` / `src/extension.ts`. Agent docs: `AGENTS.md`.

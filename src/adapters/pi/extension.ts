@@ -9,12 +9,17 @@ import { PiSessionTracker } from "./pi-session-tracker.ts"
 const execFileAsync = promisify(execFile)
 
 async function openInBrowser(url: string): Promise<void> {
-  if (process.platform === "win32") {
-    await execFileAsync("cmd", ["/c", "start", "", url])
-    return
+  try {
+    if (process.platform === "win32") {
+      await execFileAsync("cmd", ["/c", "start", "", url])
+      return
+    }
+    const opener = process.platform === "darwin" ? "open" : "xdg-open"
+    await execFileAsync(opener, [url])
+  } catch (err) {
+    console.error(`[flow-panel] failed to open browser for ${url}:`, err)
+    throw err
   }
-  const opener = process.platform === "darwin" ? "open" : "xdg-open"
-  await execFileAsync(opener, [url])
 }
 
 function stringField(value: unknown, key: string): string | undefined {
@@ -48,19 +53,52 @@ export default function piExtension(pi: ExtensionAPI): void {
   })
   tracker.onUpdate(() => panelServer.publish())
 
+  let lastActiveSessionID: string | undefined
+
   async function openPanel(sessionID: string, reset: boolean): Promise<string> {
     if (reset) tracker.reset()
     tracker.setActiveSession(sessionID)
-    await panelServer.start()
+    lastActiveSessionID = sessionID
+    try {
+      await panelServer.start()
+    } catch (err) {
+      console.error("[flow-panel] panelServer.start failed:", err)
+      throw err
+    }
     const url = panelServer.url()
-    await openInBrowser(url)
+    try {
+      await openInBrowser(url)
+    } catch (err) {
+      console.error("[flow-panel] openInBrowser failed, panel still available at", url, err)
+      // Don't throw — return url so caller can still notify user
+    }
     return url
   }
+
+  // Pi fork sessions: `session_start` with reason `fork` carries previousSessionFile.
+  // We correlate via previousSessionFile basename or lastActiveSessionID fallback.
+  pi.on("session_start", async (event: unknown, ctx) => {
+    const reason = stringField(event, "reason")
+    if (reason !== "fork") return
+    const childID = ctx.sessionManager.getSessionId()
+    if (!childID) return
+    const prevFile = stringField(event, "previousSessionFile")
+    let parentID: string | undefined
+    if (prevFile) {
+      const base = prevFile.split("/").pop() ?? prevFile.split("\\").pop() ?? prevFile
+      parentID = base.replace(/\.json$/i, "")
+    }
+    parentID ??= lastActiveSessionID
+    if (parentID && parentID !== childID) {
+      tracker.registerChild(parentID, childID)
+    }
+  })
 
   pi.on("before_agent_start", async (event: unknown, ctx) => {
     const prompt = stringField(event, "prompt") ?? ""
     const sid = ctx.sessionManager.getSessionId() ?? prompt.slice(0, 32)
     tracker.setActiveSession(sid)
+    lastActiveSessionID = sid
     tracker.dispatchBySession(sid, (store) => {
       const unitId = `pi-${Date.now()}`
       store.startUnit(unitId, prompt)
@@ -75,6 +113,7 @@ export default function piExtension(pi: ExtensionAPI): void {
 
   pi.on("message_update", async (event: unknown, ctx) => {
     const sid = ctx.sessionManager.getSessionId() ?? "default"
+    lastActiveSessionID = sid
     const msg = objectField(event, "message")
     if (!msg || msg["role"] !== "assistant") return
     const turnIndex = numberField(event, "turnIndex")
@@ -85,30 +124,52 @@ export default function piExtension(pi: ExtensionAPI): void {
       if (id) turnId = id
     }
     const assistantMessageEvent = objectField(event, "assistantMessageEvent")
+    const eventType = assistantMessageEvent ? stringField(assistantMessageEvent, "type") : undefined
     const delta = assistantMessageEvent ? stringField(assistantMessageEvent, "delta") ?? "" : ""
-    const content = stringField(msg, "content") ?? ""
-    tracker.dispatchBySession(sid, (store) => store.appendAssistantText(turnId, delta || content))
+    // Only handle real streaming deltas. Ignore fallback via msg.content —
+    // under oh-my-pi it contains task JSON ({"i":...}) and creates phantom text.
+    if (!delta) return
+    // thinking_delta vs text_delta — route to reasoning vs text
+    if (eventType === "thinking_delta" || eventType === "thinking_start" || eventType === "thinking_end") {
+      tracker.dispatchBySession(sid, (store) => store.appendAssistantText(turnId, "", delta))
+    } else if (eventType === "text_delta" || eventType === "text_start" || eventType === "text_end") {
+      tracker.dispatchBySession(sid, (store) => store.appendAssistantText(turnId, delta, undefined))
+    } else if (eventType === undefined) {
+      // non-streaming fallback only when we have an explicit delta; msg.content is ignored
+      tracker.dispatchBySession(sid, (store) => store.appendAssistantText(turnId, delta, undefined))
+    }
   })
 
   pi.on("tool_call", async (event: unknown, ctx) => {
     const sid = ctx.sessionManager.getSessionId() ?? "default"
+    lastActiveSessionID = sid
     const toolCallId = stringField(event, "toolCallId") ?? "unknown"
     const toolName = stringField(event, "toolName") ?? "unknown"
+    const input = objectField(event, "input") as Record<string, unknown> | undefined
     const turnIndex = numberField(event, "turnIndex")
     const turnId = turnIndex !== undefined ? String(turnIndex) : "0"
     tracker.dispatchBySession(sid, (store) => {
-      store.onToolCall(toolCallId, toolName, turnId)
+      store.onToolCall(toolCallId, toolName, turnId, input)
     })
   })
 
   pi.on("tool_result", async (event: unknown, ctx) => {
     const sid = ctx.sessionManager.getSessionId() ?? "default"
+    lastActiveSessionID = sid
     const toolCallId = stringField(event, "toolCallId") ?? "unknown"
     const toolName = stringField(event, "toolName") ?? "unknown"
     let content: unknown = objectField(event, "details") ?? ""
     if (event !== null && typeof event === "object" && "content" in event) {
       const candidate = (event as Record<string, unknown>)["content"]
       if (candidate !== undefined) content = candidate
+      // Pi content is (TextContent|ImageContent)[] — extract text
+      if (Array.isArray(candidate)) {
+        const texts = (candidate as unknown[])
+          .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null && "type" in c)
+          .filter((c) => c["type"] === "text" && typeof c["text"] === "string")
+          .map((c) => c["text"] as string)
+        if (texts.length > 0) content = texts.join("\n")
+      }
     }
     let isError = false
     if (event !== null && typeof event === "object" && "isError" in event) {
@@ -120,26 +181,56 @@ export default function piExtension(pi: ExtensionAPI): void {
     })
   })
 
+  // Tool execution lifecycle mirrors tool_result but fires even for forked delegates
+  pi.on("tool_execution_end", async (event: unknown, ctx) => {
+    const sid = ctx.sessionManager.getSessionId() ?? "default"
+    const toolCallId = stringField(event, "toolCallId")
+    const toolName = stringField(event, "toolName")
+    if (!toolCallId || !toolName) return
+    const result = objectField(event, "result")
+    const isError = (() => {
+      if (event !== null && typeof event === "object" && "isError" in event) {
+        const v = (event as Record<string, unknown>)["isError"]
+        return typeof v === "boolean" ? v : false
+      }
+      return false
+    })()
+    // Only handle delegate tools via execution_end if not already completed via tool_result
+    if (toolName === "oh_my_pi_delegate_task" || toolName === "oh_my_pi_subagent") {
+      tracker.dispatchBySession(sid, (store) => {
+        store.onToolResult(toolCallId, toolName, result ?? "", isError)
+      })
+    }
+  })
+
   pi.on("tool_execution_start", async (event: unknown, ctx) => {
     const sid = ctx.sessionManager.getSessionId() ?? "default"
+    lastActiveSessionID = sid
     const toolCallId = stringField(event, "toolCallId")
     if (!toolCallId) return
     tracker.dispatchBySession(sid, (store) => store.markToolRunning(toolCallId))
   })
 
+  pi.on("tool_execution_update", async () => {
+    // Reserved for streaming partialResult — currently no-op to avoid noisy updates.
+  })
+
   pi.on("turn_end", async (event: unknown, ctx) => {
     const sid = ctx.sessionManager.getSessionId() ?? "default"
+    lastActiveSessionID = sid
     const turnIndex = numberField(event, "turnIndex") ?? 0
     tracker.dispatchBySession(sid, (store) => store.finishTurn(String(turnIndex)))
   })
 
   pi.on("agent_end", async (_event: unknown, ctx) => {
     const sid = ctx.sessionManager.getSessionId() ?? "default"
+    lastActiveSessionID = sid
     tracker.dispatchBySession(sid, (store) => store.closeOpenUnit())
   })
 
   pi.on("agent_settled", async (_event: unknown, ctx) => {
     const sid = ctx.sessionManager.getSessionId() ?? "default"
+    lastActiveSessionID = sid
     tracker.dispatchBySession(sid, (store) => store.closeOpenUnit())
   })
 
@@ -156,8 +247,27 @@ export default function piExtension(pi: ExtensionAPI): void {
     },
   })
 
+  // Alias for typo /flaw → same as /flow
+  pi.registerCommand("flaw", {
+    description: "Open the Agent Flow panel (keep history) — alias for /flow",
+    handler: async (_args: string, ctx) => {
+      const sid = ctx.sessionManager.getSessionId() ?? "default"
+      const url = await openPanel(sid, false)
+      ctx.ui.notify(`Agent Flow panel: ${url}`, "info")
+    },
+  })
+
   pi.registerCommand("flow-reset", {
     description: "Open the Agent Flow panel from scratch",
+    handler: async (_args: string, ctx) => {
+      const sid = ctx.sessionManager.getSessionId() ?? "default"
+      const url = await openPanel(sid, true)
+      ctx.ui.notify(`Agent Flow panel (reset): ${url}`, "info")
+    },
+  })
+
+  pi.registerCommand("flaw-reset", {
+    description: "Open the Agent Flow panel from scratch — alias for /flow-reset",
     handler: async (_args: string, ctx) => {
       const sid = ctx.sessionManager.getSessionId() ?? "default"
       const url = await openPanel(sid, true)

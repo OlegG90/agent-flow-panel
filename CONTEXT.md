@@ -38,6 +38,10 @@ The internal work of a sub-agent, revealed as a nested flow of Units of Work ben
 **Sub-agent summary**:
 A single node that collapses several Subtasks into one, shown when more sub-agents run than are expanded individually.
 
+**Orchestration**:
+A turn that produced no model text/reasoning and no tool calls — oh-my-pi bookkeeping (worktree setup, queue poll) — kept as a dimmed node to preserve the full trace.
+_Avoid_: hiding it as if nothing happened
+
 **Unit of Work**:
 One human request together with the full tree of steps the agent performs to satisfy it.
 

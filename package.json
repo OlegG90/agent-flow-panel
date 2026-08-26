@@ -10,13 +10,20 @@
   },
   "pi": {
     "extensions": [
+      "./dist/extension.js",
+      "./src/extension.ts"
+    ]
+  },
+  "omp": {
+    "extensions": [
+      "./dist/extension.js",
       "./src/extension.ts"
     ]
   },
   "scripts": {
     "build": "npm run build:opencode && npm run build:pi",
     "build:opencode": "esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/server.js",
-    "build:pi": "esbuild src/extension.ts --bundle --platform=node --format=esm --outfile=dist/extension.js --external:@earendil-works/* --external:typebox",
+    "build:pi": "esbuild src/extension.ts --bundle --platform=node --format=esm --outfile=dist/extension.js --external:@earendil-works/* --external:@oh-my-pi/*",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "node --test \"src/**/*.test.ts\"",

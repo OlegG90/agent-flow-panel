@@ -1,3 +1,6 @@
 node_modules/
 dist/
-panel-preview-*.html
+/panel-preview-*.html
+.pi/
+err.txt
+out.txt

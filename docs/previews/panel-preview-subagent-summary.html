@@ -1,140 +1,4 @@
-import type { FlowTree, PlanItem, StepNode, UnitOfWork } from "./types.ts"
-
-export const FLOW_CONTAINER_ID = "flow"
-export const EVENTS_PATH = "/events"
-
-const STATE_LABEL: Record<StepNode["state"], string> = {
-  pending: "pending",
-  running: "running",
-  completed: "done",
-  failed: "failed",
-}
-
-function truncate(text: string, max = 80): string {
-  const compact = text.replace(/\s+/g, " ").trim()
-  return compact.length > max ? `${compact.slice(0, max)}…` : compact
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;")
-}
-
-function attrEscape(value: string): string {
-  return escapeHtml(value).replaceAll("\n", "&#10;")
-}
-
-interface WalkContext {
-  node: StepNode
-  inner: string
-  depth: number
-}
-
-function walk(node: StepNode, depth: number, leaf: (ctx: WalkContext) => string): string {
-  const inner = node.children.map((child) => walk(child, depth + 1, leaf)).join("")
-  return leaf({ node, inner, depth })
-}
-
-function textLeaf({ node, inner, depth }: WalkContext): string {
-  const pad = "  ".repeat(depth)
-  const content = node.content.length > 0 ? `: ${truncate(node.content)}` : ""
-  const lines = [`${pad}[${STATE_LABEL[node.state]}] ${node.label}${content}`]
-  if (node.reasoning) {
-    lines.push(`${pad}  ↳ reasoning: ${truncate(node.reasoning)}`)
-  }
-  if (inner) {
-    lines.push(inner)
-  }
-  return lines.join("\n")
-}
-
-function htmlLeaf({ node, inner }: WalkContext): string {
-  const hasChildren = inner ? " has-children" : ""
-  const subtaskClass = node.subtask ? " step--subtask" : ""
-  const toggle = inner ? '<button class="step-toggle" type="button" aria-label="Toggle">▾</button>' : ""
-  const badge = node.subtask ? '<span class="step-badge">sub-agent</span>' : ""
-  const contentAttr = node.content.length > 0 ? ` data-content="${attrEscape(node.content)}"` : ""
-  const reasoningAttr = node.reasoning ? ` data-reasoning="${attrEscape(node.reasoning)}"` : ""
-  const parts = [
-    `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}${hasChildren}${subtaskClass}" data-id="${escapeHtml(node.id)}" data-type="${node.type}" data-state="${node.state}"${contentAttr}${reasoningAttr}>`,
-    toggle,
-    `<span class="step-label">${escapeHtml(node.label)}</span>`,
-    badge,
-    `<span class="step-state">${STATE_LABEL[node.state]}</span>`,
-  ]
-  if (node.content.length > 0) {
-    parts.push(`<span class="step-content">${escapeHtml(truncate(node.content, 120))}</span>`)
-  }
-  if (node.reasoning) {
-    parts.push(`<div class="step-reasoning">${escapeHtml(truncate(node.reasoning))}</div>`)
-  }
-  if (inner) {
-    parts.push(`<ol class="steps steps--nested">${inner}</ol>`)
-  }
-  parts.push("</li>")
-  return parts.join("")
-}
-
-function renderPlan(plan: PlanItem[], format: "text" | "html"): string {
-  if (plan.length === 0) {
-    return ""
-  }
-  if (format === "text") {
-    return `  Plan:\n${plan.map((item) => `    [${item.state}] ${item.title}`).join("\n")}`
-  }
-  return `<ul class="plan">${plan
-    .map(
-      (item) =>
-        `<li class="plan-item" data-state="${item.state}">${escapeHtml(item.title)}</li>`,
-    )
-    .join("")}</ul>`
-}
-
-function unitText(unit: UnitOfWork, index: number): string {
-  const lines = [`Unit of Work #${index + 1}: ${truncate(unit.request.content)}`]
-  lines.push(walk(unit.request, 1, textLeaf))
-  for (const step of unit.steps) {
-    lines.push(walk(step, 1, textLeaf))
-  }
-  const plan = renderPlan(unit.plan, "text")
-  if (plan) {
-    lines.push(plan)
-  }
-  return lines.join("\n")
-}
-
-function unitHtml(unit: UnitOfWork, index: number): string {
-  return [
-    '<section class="unit">',
-    `<h2 class="unit-title">Unit of Work #${index + 1}</h2>`,
-    renderPlan(unit.plan, "html"),
-    `<ol class="steps">${walk(unit.request, 0, htmlLeaf)}${unit.steps
-      .map((step) => walk(step, 0, htmlLeaf))
-      .join("")}</ol>`,
-    "</section>",
-  ].join("")
-}
-
-export function renderTree(tree: FlowTree): string {
-  const lines: string[] = []
-  for (const [index, unit] of tree.units.entries()) {
-    lines.push(unitText(unit, index))
-    lines.push("")
-  }
-  return lines.join("\n").trimEnd() || "(no flow recorded)"
-}
-
-export function renderFlowHtml(tree: FlowTree): string {
-  const units = tree.units.map((unit, index) => unitHtml(unit, index)).join("")
-  const empty = tree.units.length === 0 ? '<p class="empty">No flow recorded yet.</p>' : ""
-  return units + empty
-}
-
-const STYLES = `
+<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Agent Flow Panel</title><style>
 :root {
   color-scheme: dark;
   --bg: #161618;
@@ -242,12 +106,10 @@ h1 { font-size: 1.25rem; }
   }
   #details-toggle { position: fixed; top: 0.75rem; right: 0.75rem; z-index: 20; }
 }
-`
-
-const CLIENT_SCRIPT = `
+</style></head><body><header class="topbar"><h1>Agent Flow Panel</h1><button id="details-toggle" type="button">Hide details</button></header><main class="layout" id="layout"><div class="flow" id="flow"><section class="unit"><h2 class="unit-title">Unit of Work #1</h2><ol class="steps"><li class="step step--user-request step--done" data-id="ur-msg_many_agents" data-type="user-request" data-state="completed" data-content="Запусти п&#39;ять саб-агентів для перевірки різних моделей"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Запусти п&#39;ять саб-агентів для перевірки різних моделей</span></li><li class="step step--model-call step--done has-children" data-id="mc-many-1" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done has-children" data-id="mr-many-1" data-type="model-reply" data-state="completed" data-content="Запускаю саб-агентів."><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Запускаю саб-агентів.</span><ol class="steps steps--nested"><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-agent1" data-type="tool-call" data-state="completed" data-content="Agent 1 task"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: agent1</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Agent 1 task</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-agent1" data-type="user-request" data-state="completed" data-content="Agent 1 prompt"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Agent 1 prompt</span></li><li class="step step--model-call step--done has-children" data-id="mc-agent1" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-agent1" data-type="model-reply" data-state="completed" data-content="Agent 1 result"><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Agent 1 result</span></li></ol></li><li class="step step--answer step--done" data-id="ans-agent1" data-type="answer" data-state="completed" data-content="Agent 1 done"><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">Agent 1 done</span></li></ol></li><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-agent2" data-type="tool-call" data-state="completed" data-content="Agent 2 task"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: agent2</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Agent 2 task</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-agent2" data-type="user-request" data-state="completed" data-content="Agent 2 prompt"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Agent 2 prompt</span></li><li class="step step--model-call step--done has-children" data-id="mc-agent2" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-agent2" data-type="model-reply" data-state="completed" data-content="Agent 2 result"><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Agent 2 result</span></li></ol></li><li class="step step--answer step--done" data-id="ans-agent2" data-type="answer" data-state="completed" data-content="Agent 2 done"><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">Agent 2 done</span></li></ol></li><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-agent3" data-type="tool-call" data-state="completed" data-content="Agent 3 task"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: agent3</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Agent 3 task</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-agent3" data-type="user-request" data-state="completed" data-content="Agent 3 prompt"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Agent 3 prompt</span></li><li class="step step--model-call step--done has-children" data-id="mc-agent3" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-agent3" data-type="model-reply" data-state="completed" data-content="Agent 3 result"><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Agent 3 result</span></li></ol></li><li class="step step--answer step--done" data-id="ans-agent3" data-type="answer" data-state="completed" data-content="Agent 3 done"><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">Agent 3 done</span></li></ol></li></ol></li></ol></li><li class="step step--model-call step--done has-children" data-id="mc-many-2" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-many-2" data-type="model-reply" data-state="completed" data-content="Решта агентів підсумовано."><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Решта агентів підсумовано.</span></li></ol></li><li class="step step--model-call step--done has-children" data-id="mc-many-3" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-many-3" data-type="model-reply" data-state="completed" data-content="Останній агент також у підсумку."><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Останній агент також у підсумку.</span></li></ol></li><li class="step step--subtask-summary step--done" data-id="summary-msg_many_agents" data-type="subtask-summary" data-state="completed" data-content="agent4, agent5"><span class="step-label">2 more sub-agents</span><span class="step-state">done</span><span class="step-content">agent4, agent5</span></li><li class="step step--answer step--done" data-id="ans-msg_many_agents" data-type="answer" data-state="completed" data-content="П&#39;ять саб-агентів: перші три детально, решту згорнуто."><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">П&#39;ять саб-агентів: перші три детально, решту згорнуто.</span></li></ol></section></div><aside class="details" id="details"><p class="details-empty">Select a step to see its details.</p></aside></main>
 <script>
 (() => {
-  const flow = document.getElementById("${FLOW_CONTAINER_ID}");
+  const flow = document.getElementById("flow");
   const details = document.getElementById("details");
   const layout = document.getElementById("layout");
   const detailsToggle = document.getElementById("details-toggle");
@@ -318,7 +180,7 @@ const CLIENT_SCRIPT = `
     detailsToggle.textContent = "Hide details";
     showDetails(step);
   };
-  const source = new EventSource("${EVENTS_PATH}");
+  const source = new EventSource("/events");
   source.onmessage = (event) => { flow.innerHTML = event.data; applyCollapsed(); applySelected(); };
   flow.addEventListener("click", (event) => {
     const toggle = event.target.closest(".step-toggle");
@@ -344,28 +206,4 @@ const CLIENT_SCRIPT = `
   });
 })();
 </script>
-`
-
-export function renderPanelHtml(tree: FlowTree): string {
-  return [
-    "<!doctype html>",
-    '<html lang="en">',
-    "<head>",
-    '<meta charset="utf-8" />',
-    "<title>Agent Flow Panel</title>",
-    `<style>${STYLES}</style>`,
-    "</head>",
-    "<body>",
-    '<header class="topbar">',
-    "<h1>Agent Flow Panel</h1>",
-    '<button id="details-toggle" type="button">Hide details</button>',
-    "</header>",
-    '<main class="layout" id="layout">',
-    `<div class="flow" id="${FLOW_CONTAINER_ID}">${renderFlowHtml(tree)}</div>`,
-    '<aside class="details" id="details"><p class="details-empty">Select a step to see its details.</p></aside>',
-    "</main>",
-    CLIENT_SCRIPT,
-    "</body>",
-    "</html>",
-  ].join("")
-}
+</body></html>

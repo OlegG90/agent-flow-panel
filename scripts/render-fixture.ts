@@ -8,7 +8,7 @@ const execFileAsync = promisify(execFile)
 
 const name = process.argv[2] ?? "subagent-session"
 const tree = JSON.parse(readFileSync(`fixtures/${name}.json`, "utf8")) as FlowTree
-const out = `panel-preview-${name}.html`
+const out = `docs/previews/panel-preview-${name}.html`
 writeFileSync(out, renderPanelHtml(tree))
 console.log(`wrote ${out}`)
 

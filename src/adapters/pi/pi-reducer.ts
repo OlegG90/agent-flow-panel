@@ -47,12 +47,23 @@ export class PiFlowStore {
   tree(): FlowTree {
     return {
       sessionID: this.sessionID,
-      units: this.units.map((unit) => ({
-        id: unit.id,
-        request: structuredClone(unit.request),
-        steps: structuredClone(unit.steps),
-        plan: unit.plan.map((item) => ({ ...item })),
-      })),
+      units: this.units.map((unit) => {
+        const steps = structuredClone(unit.steps).map((step) => {
+          if (step.type === "model-call" && step.children[0]) {
+            const reply = step.children[0]!
+            if (reply.content.trimStart().startsWith('{"i":') && reply.children.length > 0) {
+              reply.content = ""
+            }
+          }
+          return step
+        })
+        return {
+          id: unit.id,
+          request: structuredClone(unit.request),
+          steps,
+          plan: unit.plan.map((item) => ({ ...item })),
+        }
+      }),
     }
   }
 
@@ -98,6 +109,11 @@ export class PiFlowStore {
   }
 
   appendAssistantText(turnId: string, delta: string, reasoningDelta?: string): void {
+    // oh-my-pi streams delegate_task payload as text_delta with JSON like
+    // {"i":"...","path":"..."} — must not be shown as Model reply.
+    const isTaskPayload = (s: string): boolean => s.trimStart().startsWith('{"i":')
+    if (delta && isTaskPayload(delta)) return
+    if (reasoningDelta && isTaskPayload(reasoningDelta)) return
     const unit = this.openUnit
     if (!unit) return
     let turn = unit.turns.find((t) => t.id === turnId)
@@ -117,15 +133,28 @@ export class PiFlowStore {
   }
 
   finishTurn(turnId: string): void {
-    const turn = this.openUnit?.turns.find((t) => t.id === turnId)
-    if (turn) {
-      turn.modelCall.state = "completed"
-      turn.modelReply.state = "completed"
+    const unit = this.openUnit
+    if (!unit) return
+    const turn = unit.turns.find((t) => t.id === turnId)
+    if (!turn) return
+    turn.modelCall.state = "completed"
+    turn.modelReply.state = "completed"
+    // Empty turn (no text/reasoning/tools) is oh-my-pi bookkeeping
+    // (worktree setup, queue poll). Keep it but as distinct "orchestration"
+    // type — user requested not to hide even empty steps.
+    const hasContent = turn.text.trim().length > 0 || turn.reasoning.trim().length > 0
+    const hasTools = turn.modelReply.children.length > 0
+    if (!hasContent && !hasTools) {
+      turn.modelCall.type = "orchestration"
+      turn.modelCall.label = "Orchestration"
+      turn.modelCall.children = []
+      // Drop the now-irrelevant empty reply from the turn's hierarchy;
+      // keep modelReply object for state but not in tree.
     }
   }
 
   // Pi: tool_call event — before execution, can mutate input. We create ToolCall node.
-  onToolCall(toolCallId: string, toolName: string, turnId: string): StepNode {
+  onToolCall(toolCallId: string, toolName: string, turnId: string, input?: Record<string, unknown>): StepNode {
     let node = this.toolNodes.get(toolCallId)
     if (node) return node
     const unit = this.ensureOpenUnit(turnId)
@@ -135,8 +164,17 @@ export class PiFlowStore {
       turn = unit.turns.find((t) => t.id === turnId)!
     }
     const isSubtask = SUBTASK_TOOLS[toolName] === true
-    const label = isSubtask ? `Sub-agent: ${toolName}` : `Tool: ${toolName}`
-    node = makeNode(`tc-${toolCallId}`, "tool-call", label, "running")
+    let label = isSubtask ? `Sub-agent: ${toolName}` : `Tool: ${toolName}`
+    let content = ""
+    if (isSubtask && input) {
+      const task = typeof input["task"] === "string" ? (input["task"] as string) : ""
+      const agent = typeof input["agent"] === "string" ? (input["agent"] as string) : ""
+      const category = typeof input["category"] === "string" ? (input["category"] as string) : ""
+      if (agent) label = `Sub-agent: ${agent}`
+      else if (category) label = `Sub-agent: ${category}`
+      content = task || category || ""
+    }
+    node = makeNode(`tc-${toolCallId}`, "tool-call", label, "running", content)
     if (isSubtask) node.subtask = true
     this.toolNodes.set(toolCallId, node)
     turn.modelReply.children.push(node)
@@ -185,7 +223,8 @@ export class PiFlowStore {
   // Update running state explicitly (tool_execution_start)
   markToolRunning(toolCallId: string): void {
     const node = this.toolNodes.get(toolCallId)
-    if (node && node.state === "pending") node.state = "running"
+    if (node && (node.state === "pending" || node.state === "running")) node.state = "running"
+    else if (node && node.state !== "completed" && node.state !== "failed") node.state = "running"
   }
 
   closeOpenUnit(): void {
