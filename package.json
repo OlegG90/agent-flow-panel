@@ -2,13 +2,21 @@
   "name": "opencode-flow-panel",
   "version": "0.1.0",
   "private": true,
-  "description": "OpenCode plugin that visualizes an agent's work as a live flowchart panel",
+  "description": "OpenCode plugin that visualizes an agent's work as a live flowchart panel (OpenCode + Pi / oh-my-pi)",
   "type": "module",
   "exports": {
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./extension": "./src/extension.ts"
+  },
+  "pi": {
+    "extensions": [
+      "./src/extension.ts"
+    ]
   },
   "scripts": {
-    "build": "esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/server.js",
+    "build": "npm run build:opencode && npm run build:pi",
+    "build:opencode": "esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/server.js",
+    "build:pi": "esbuild src/extension.ts --bundle --platform=node --format=esm --outfile=dist/extension.js --external:@earendil-works/* --external:typebox",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "node --test \"src/**/*.test.ts\"",
@@ -16,6 +24,10 @@
   },
   "dependencies": {
     "@opencode-ai/plugin": "1.18.16"
+  },
+  "optionalDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.74.0",
+    "typebox": "^0.34.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
