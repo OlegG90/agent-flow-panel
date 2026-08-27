@@ -1,6 +1,6 @@
 {
   "name": "opencode-flow-panel",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "OpenCode plugin that visualizes an agent's work as a live flowchart panel (OpenCode + Pi / oh-my-pi)",
   "type": "module",
