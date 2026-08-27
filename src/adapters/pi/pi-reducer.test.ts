@@ -152,4 +152,31 @@ describe("PiFlowStore", () => {
     // should be converted to orchestration because payload is filtered
     assert.equal(unit.steps[0]!.type, "orchestration")
   })
+
+  it("ignores a delegate_task payload split across streaming deltas", () => {
+    const s = store()
+    s.startUnit("u1", "x")
+    s.startTurn("0")
+    for (const chunk of ['{"i"', ':"explore"', ',"path":"/a"}']) {
+      s.appendAssistantText("0", chunk)
+    }
+    s.finishTurn("0")
+    const unit = s.tree().units[0]!
+    assert.equal(unit.steps[0]!.type, "orchestration")
+    s.closeOpenUnit()
+    assert.ok(!s.tree().units[0]!.steps.some((step) => step.type === "answer"))
+  })
+
+  it("keeps real text that merely starts with a brace", () => {
+    const s = store()
+    s.startUnit("u1", "x")
+    s.startTurn("0")
+    for (const chunk of ["{", ' "hello": true } is valid JSON']) {
+      s.appendAssistantText("0", chunk)
+    }
+    s.finishTurn("0")
+    const unit = s.tree().units[0]!
+    assert.equal(unit.steps[0]!.type, "model-call")
+    assert.match(unit.steps[0]!.children[0]!.content, /is valid JSON/)
+  })
 })

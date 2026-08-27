@@ -10,6 +10,25 @@ function makeNode(
   return { id, type, label, state, content, children: [] }
 }
 
+// oh-my-pi streams the `delegate_task` payload through the assistant text
+// channel as JSON like {"i":"explore","path":"…"}. It is bookkeeping, not a
+// reply, so it must never surface as Model reply text or as an Answer.
+const TASK_PAYLOAD_PREFIX = '{"i":'
+
+/**
+ * True while `text` is — or is still only a prefix of — a delegate_task
+ * payload. Streaming splits the JSON across deltas, so a partial head such as
+ * `{"i` must be recognised too; the verdict flips back to false as soon as the
+ * accumulated text diverges from the payload shape.
+ */
+function isTaskPayload(text: string): boolean {
+  const head = text.trimStart()
+  if (head.length === 0) {
+    return false
+  }
+  return head.startsWith(TASK_PAYLOAD_PREFIX) || TASK_PAYLOAD_PREFIX.startsWith(head)
+}
+
 // Oh-my-pi delegation tools — treated as subtask launches (analog of OpenCode `task`)
 const SUBTASK_TOOLS: Record<string, true> = {
   oh_my_pi_delegate_task: true,
@@ -22,6 +41,15 @@ interface TurnState {
   modelReply: StepNode
   text: string
   reasoning: string
+}
+
+/** The accumulated assistant text minus any delegate_task payload. */
+function visibleText(turn: TurnState): string {
+  return isTaskPayload(turn.text) ? "" : turn.text
+}
+
+function visibleReasoning(turn: TurnState): string {
+  return isTaskPayload(turn.reasoning) ? "" : turn.reasoning
 }
 
 interface UnitState {
@@ -47,23 +75,12 @@ export class PiFlowStore {
   tree(): FlowTree {
     return {
       sessionID: this.sessionID,
-      units: this.units.map((unit) => {
-        const steps = structuredClone(unit.steps).map((step) => {
-          if (step.type === "model-call" && step.children[0]) {
-            const reply = step.children[0]!
-            if (reply.content.trimStart().startsWith('{"i":') && reply.children.length > 0) {
-              reply.content = ""
-            }
-          }
-          return step
-        })
-        return {
-          id: unit.id,
-          request: structuredClone(unit.request),
-          steps,
-          plan: unit.plan.map((item) => ({ ...item })),
-        }
-      }),
+      units: this.units.map((unit) => ({
+        id: unit.id,
+        request: structuredClone(unit.request),
+        steps: structuredClone(unit.steps),
+        plan: unit.plan.map((item) => ({ ...item })),
+      })),
     }
   }
 
@@ -109,11 +126,6 @@ export class PiFlowStore {
   }
 
   appendAssistantText(turnId: string, delta: string, reasoningDelta?: string): void {
-    // oh-my-pi streams delegate_task payload as text_delta with JSON like
-    // {"i":"...","path":"..."} — must not be shown as Model reply.
-    const isTaskPayload = (s: string): boolean => s.trimStart().startsWith('{"i":')
-    if (delta && isTaskPayload(delta)) return
-    if (reasoningDelta && isTaskPayload(reasoningDelta)) return
     const unit = this.openUnit
     if (!unit) return
     let turn = unit.turns.find((t) => t.id === turnId)
@@ -122,13 +134,15 @@ export class PiFlowStore {
       turn = unit.turns.find((t) => t.id === turnId)
       if (!turn) return
     }
+    // Filter on the accumulated text, not on the individual delta: streaming
+    // splits the payload JSON across deltas, so no single delta is decisive.
     if (delta) {
       turn.text += delta
-      turn.modelReply.content = turn.text
+      turn.modelReply.content = visibleText(turn)
     }
     if (reasoningDelta) {
       turn.reasoning += reasoningDelta
-      turn.modelReply.reasoning = turn.reasoning
+      turn.modelReply.reasoning = visibleReasoning(turn)
     }
   }
 
@@ -142,7 +156,8 @@ export class PiFlowStore {
     // Empty turn (no text/reasoning/tools) is oh-my-pi bookkeeping
     // (worktree setup, queue poll). Keep it but as distinct "orchestration"
     // type — user requested not to hide even empty steps.
-    const hasContent = turn.text.trim().length > 0 || turn.reasoning.trim().length > 0
+    const hasContent =
+      visibleText(turn).trim().length > 0 || visibleReasoning(turn).trim().length > 0
     const hasTools = turn.modelReply.children.length > 0
     if (!hasContent && !hasTools) {
       turn.modelCall.type = "orchestration"
@@ -223,8 +238,10 @@ export class PiFlowStore {
   // Update running state explicitly (tool_execution_start)
   markToolRunning(toolCallId: string): void {
     const node = this.toolNodes.get(toolCallId)
-    if (node && (node.state === "pending" || node.state === "running")) node.state = "running"
-    else if (node && node.state !== "completed" && node.state !== "failed") node.state = "running"
+    if (!node) return
+    // A tool that already reported an outcome must not fall back to running.
+    if (node.state === "completed" || node.state === "failed") return
+    node.state = "running"
   }
 
   closeOpenUnit(): void {
@@ -234,7 +251,7 @@ export class PiFlowStore {
     const last = unit.turns.at(-1)
     if (last) {
       this.finishTurn(last.id)
-      const text = last.text.trim()
+      const text = visibleText(last).trim()
       if (text.length > 0) {
         unit.steps.push(makeNode(`ans-${unit.id}`, "answer", "Answer", "completed", text))
       }
