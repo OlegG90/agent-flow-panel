@@ -14,8 +14,18 @@ function sameToken(candidate: string | null, expected: string): boolean {
   return timingSafeEqual(Buffer.from(candidate), Buffer.from(expected))
 }
 
+/**
+ * Streaming fires an update per token delta, and every frame re-renders the
+ * whole tree. Coalescing on a leading+trailing window keeps the first update
+ * of a burst instant while capping a continuous stream at one frame per
+ * window, which is well under what the eye resolves anyway.
+ */
+export const DEFAULT_COALESCE_MS = 120
+
 export interface PanelServerDeps {
   getTree: () => FlowTree
+  /** Minimum gap between rendered frames. 0 disables coalescing. */
+  coalesceMs?: number
 }
 
 export interface PanelServer {
@@ -66,6 +76,49 @@ export function createPanelServer(deps: PanelServerDeps): PanelServer {
     res.end("not found")
   })
 
+  const coalesceMs = deps.coalesceMs ?? DEFAULT_COALESCE_MS
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let pending = false
+
+  function flush(): void {
+    if (clients.size === 0) {
+      return
+    }
+    const payload = sseData(renderFlowHtml(deps.getTree()))
+    for (const client of clients) {
+      try {
+        client.write(payload)
+      } catch {
+        // socket already dead; its close handler will remove it
+      }
+    }
+  }
+
+  function schedule(): void {
+    if (clients.size === 0) {
+      return
+    }
+    if (coalesceMs <= 0) {
+      flush()
+      return
+    }
+    // Inside an open window: remember that something changed and let the
+    // trailing flush pick it up, so a burst costs one frame instead of N.
+    if (timer) {
+      pending = true
+      return
+    }
+    flush()
+    timer = setTimeout(() => {
+      timer = undefined
+      if (pending) {
+        pending = false
+        schedule()
+      }
+    }, coalesceMs)
+    timer.unref?.()
+  }
+
   return {
     async start(): Promise<void> {
       if (server.listening) {
@@ -87,19 +140,14 @@ export function createPanelServer(deps: PanelServerDeps): PanelServer {
       return `http://127.0.0.1:${boundPort}/${path}?t=${token}`
     },
     publish(): void {
-      if (clients.size === 0) {
-        return
-      }
-      const payload = sseData(renderFlowHtml(deps.getTree()))
-      for (const client of clients) {
-        try {
-          client.write(payload)
-        } catch {
-          // socket already dead; its close handler will remove it
-        }
-      }
+      schedule()
     },
     async close(): Promise<void> {
+      if (timer) {
+        clearTimeout(timer)
+        timer = undefined
+      }
+      pending = false
       if (!server.listening) {
         return
       }

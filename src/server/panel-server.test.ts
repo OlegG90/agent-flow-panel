@@ -168,6 +168,61 @@ describe("panel server", () => {
     controller.abort()
   })
 
+  it("coalesces a burst of publishes into a leading and a trailing frame", async (t) => {
+    let renders = 0
+    const panel = createPanelServer({
+      getTree: () => {
+        renders += 1
+        return tree
+      },
+      coalesceMs: 40,
+    })
+    await panel.start()
+    t.after(() => panel.close())
+
+    const controller = new AbortController()
+    const response = await fetch(panel.url("events"), { signal: controller.signal })
+    const reader = response.body!.getReader()
+    await readSseUntil(reader, controller, new TextDecoder(), "Hello")
+    const afterConnect = renders
+
+    // A streaming turn publishes on every token delta.
+    for (let i = 0; i < 25; i++) {
+      panel.publish()
+    }
+    assert.equal(renders - afterConnect, 1, "burst renders once on the leading edge")
+
+    await new Promise((resolve) => setTimeout(resolve, 120))
+    assert.equal(renders - afterConnect, 2, "and once more on the trailing edge")
+
+    controller.abort()
+  })
+
+  it("renders on every publish when coalescing is disabled", async (t) => {
+    let renders = 0
+    const panel = createPanelServer({
+      getTree: () => {
+        renders += 1
+        return tree
+      },
+      coalesceMs: 0,
+    })
+    await panel.start()
+    t.after(() => panel.close())
+
+    const controller = new AbortController()
+    const response = await fetch(panel.url("events"), { signal: controller.signal })
+    const reader = response.body!.getReader()
+    await readSseUntil(reader, controller, new TextDecoder(), "Hello")
+    const afterConnect = renders
+
+    panel.publish()
+    panel.publish()
+    assert.equal(renders - afterConnect, 2)
+
+    controller.abort()
+  })
+
   it("publish is a no-op before start and with no clients", async () => {
     const panel = createPanelServer({ getTree: () => tree })
     panel.publish()
