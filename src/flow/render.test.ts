@@ -157,6 +157,23 @@ describe("renderPanelHtml", () => {
     assert.ok(flowHtml.includes("Tool: bash"))
   })
 
+  it("keeps a multi-line plan title on a single line for SSE transport", () => {
+    const multiline: FlowTree = {
+      sessionID: "s1",
+      units: [
+        {
+          id: "m1",
+          request: tree.units[0]!.request,
+          steps: [],
+          plan: [{ id: "t1", title: "First line\nSecond line", state: "pending" }],
+        },
+      ],
+    }
+    const flowHtml = renderFlowHtml(multiline)
+    assert.ok(!flowHtml.includes("\n"))
+    assert.ok(flowHtml.includes("First line Second line"))
+  })
+
   it("renders the plan above the steps it previews", () => {
     const html = renderPanelHtml(tree)
     const planAt = html.indexOf('<ul class="plan">')

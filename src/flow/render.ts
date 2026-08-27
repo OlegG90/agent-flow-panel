@@ -85,12 +85,16 @@ function renderPlan(plan: PlanItem[], format: "text" | "html"): string {
     return ""
   }
   if (format === "text") {
-    return `  Plan:\n${plan.map((item) => `    [${item.state}] ${item.title}`).join("\n")}`
+    return `  Plan:\n${plan
+      .map((item) => `    [${item.state}] ${truncate(item.title)}`)
+      .join("\n")}`
   }
+  // `truncate` also collapses newlines: a multi-line title would otherwise
+  // break the single-line `data: …` framing of an SSE message.
   return `<ul class="plan">${plan
     .map(
       (item) =>
-        `<li class="plan-item" data-state="${item.state}">${escapeHtml(item.title)}</li>`,
+        `<li class="plan-item" data-state="${item.state}">${escapeHtml(truncate(item.title, 120))}</li>`,
     )
     .join("")}</ul>`
 }
