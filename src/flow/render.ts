@@ -407,13 +407,16 @@ h1 { font-size: 1.25rem; }
 .step--tool-result { border-color: var(--tool-result); }
 .step--answer { border-color: var(--answer); }
 .step--subtask-summary { border-color: var(--subtask-summary); }
-.step--orchestration { border-color: var(--orchestration); border-style: dashed; opacity: 0.6; }
+.step--orchestration { border-color: var(--orchestration); border-style: dashed; }
 .step--planned { border-color: var(--planned); border-style: dashed; opacity: 0.55; }
 .step--planned .step-label { font-weight: 400; }
 .step--done { opacity: 1; }
 .step--pending { opacity: 0.45; border-style: dashed; }
 .step--running { opacity: 1; animation: pulse 1.6s ease-in-out infinite; }
 .step--failed { border-color: var(--failed); }
+/* Dimming is the point of an Orchestration node, so it has to outrank the
+   state rules above. A failed one stays bright: that is the signal. */
+.step--orchestration.step--done { opacity: 0.6; }
 @keyframes pulse { 50% { opacity: 0.5; } }
 .plan { list-style: none; padding: 0; margin: 0.75rem 0 0; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .plan-item { font-size: 0.8rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.6rem; }

@@ -351,6 +351,44 @@ describe("navigation toolbar", () => {
   })
 })
 
+describe("orchestration dimming", () => {
+  const orchestrated = (state: "completed" | "failed"): FlowTree => ({
+    sessionID: "s1",
+    units: [
+      {
+        id: "m1",
+        request: tree.units[0]!.request,
+        steps: [
+          {
+            id: "sys-1",
+            type: "orchestration",
+            label: "Context compacted (auto)",
+            state,
+            content: "168.3k → 10.7k tokens",
+            children: [],
+          },
+        ],
+        plan: [],
+      },
+    ],
+  })
+
+  it("dims a completed orchestration node, outranking the done state rule", () => {
+    const html = renderPanelHtml(orchestrated("completed"))
+    // `.step--done { opacity: 1 }` comes later in the sheet, so the dimming
+    // needs the two-class selector to win.
+    assert.ok(html.includes(".step--orchestration.step--done { opacity: 0.6; }"))
+    assert.match(html, /class="step step--orchestration step--done/)
+  })
+
+  it("leaves a failed orchestration node at full strength", () => {
+    const html = renderPanelHtml(orchestrated("failed"))
+    assert.match(html, /class="step step--orchestration step--failed/)
+    // The base rule must not carry opacity, or a failed node inherits the dim.
+    assert.ok(!/\.step--orchestration \{[^}]*opacity/.test(html))
+  })
+})
+
 describe("plan preview", () => {
   const planned: FlowTree = {
     sessionID: "s1",

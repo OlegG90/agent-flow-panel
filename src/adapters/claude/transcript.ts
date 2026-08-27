@@ -194,6 +194,9 @@ function applyAgentSummary(node: StepNode, result: unknown): void {
 const COMPACT_MAX_CHARS = 400
 
 function compactNumber(value: number): string {
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1)}M`
+  }
   return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value)
 }
 
