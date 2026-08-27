@@ -7,7 +7,7 @@ import type { FlowTree } from "../src/flow/types.ts"
 const execFileAsync = promisify(execFile)
 
 const name = process.argv[2] ?? "subagent-session"
-const tree = JSON.parse(readFileSync(`fixtures/${name}.json`, "utf8")) as FlowTree
+const tree = JSON.parse(readFileSync(`scripts/fixtures/${name}.json`, "utf8")) as FlowTree
 const out = `docs/previews/panel-preview-${name}.html`
 writeFileSync(out, renderExportHtml(tree))
 console.log(`wrote ${out}`)

@@ -35,11 +35,11 @@ Client (`CLIENT_SCRIPT`):
 
 ## Static previews
 
-`npm run panel:fixture` (`scripts/render-fixture.ts`) generates the standalone export page from `fixtures/*.json`, so the committed previews are interactive offline:
+`npm run panel:fixture` (`scripts/render-fixture.ts`) generates the standalone export page from `scripts/fixtures/*.json`, so the committed previews are interactive offline:
 - `docs/previews/panel-preview-subagent-session.html` — one sub-agent expanded
 - `docs/previews/panel-preview-subagent-summary.html` — >3 sub-agents → `summary`
 
-Fixtures: `fixtures/subagent-session.json`, `subagent-summary.json`. Preview HTML is committed in `docs/previews/` (only `/panel-preview-*.html` at the repo root is ignored via `.gitignore`).
+Fixtures live next to the generator that is their only consumer: `scripts/fixtures/subagent-session.json`, `subagent-summary.json`. Preview HTML is committed in `docs/previews/` (only `/panel-preview-*.html` at the repo root is ignored via `.gitignore`).
 
 ## Limitations
 

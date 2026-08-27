@@ -3,7 +3,7 @@
 Plugin that visualizes agent work as a **live flowchart in the browser**: step tree on the left, selected step details on the right. A single codebase runs on **OpenCode**, **Pi**, and **oh-my-pi / omp**.
 
 ![Panel preview — sub-agent session](docs/previews/panel-preview-subagent-session.html)
-> Static previews: [`docs/previews/panel-preview-subagent-session.html`](docs/previews/panel-preview-subagent-session.html) · [`docs/previews/panel-preview-subagent-summary.html`](docs/previews/panel-preview-subagent-summary.html) (generated from `fixtures/`)
+> Static previews: [`docs/previews/panel-preview-subagent-session.html`](docs/previews/panel-preview-subagent-session.html) · [`docs/previews/panel-preview-subagent-summary.html`](docs/previews/panel-preview-subagent-summary.html) (generated from `scripts/fixtures/`)
 
 ## What it is
 
