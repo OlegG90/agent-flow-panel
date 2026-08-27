@@ -34,7 +34,7 @@ The dependency arrow points one way: `flow/` never imports an adapter. Adapter t
 - `Unit` opens on the first `text` with `role=user` (ignores synthetic), closes on `session.idle` or the next `UserRequest`.
 - `TurnState{modelCall→modelReply}` on `step-start`/`step-finish`, `reasoning`/`text` via `delta`.
 - `tool` part `pending→running→completed/failed`, `tool==="task"` + `subtask` part merge into a single `subtask:true` node (queues `turnUnmatched`/`turnTaskCalls` for ordering). `ToolState.time` → `startedAt`/`endedAt`; `ToolState.title` is promoted into the label (`Tool: bash · npm test`) unless it repeats the tool name.
-- `AssistantMessage.time`/`tokens`/`cost` → metrics on the turn's `model-call`. `cost` is read but is `0` on plans that do not bill per message, and the badge is skipped when it is — so in practice the panel often shows no cost at all.
+- `AssistantMessage.time`/`tokens` → metrics on the turn's `model-call`. `cost` is read into the node when the provider supplies a non-zero one; it is not something the panel promises, since subscription plans and gateways report none.
 - `Plan` from `todo.updated` (buffer `pendingTodos`).
 
 `SessionTracker extends BaseSessionTracker<FlowStore>` — adds only `dispatch(event)`: `session.created{parentID}` → `registerChild`, everything else routed by `sessionIDOf`. Composition (sort by `created`, tie-break on `id`, recursive flat graft of `request+steps`, `subtask-summary` beyond the third) lives in the shared base.
@@ -72,6 +72,10 @@ That same survey produced 106 orchestration nodes covering all four subtypes, an
 Empty turns without content/tools → `finishTurn` converts `model-call` to `orchestration` (dashed, kept by design instead of hidden).
 
 Pi events carry no timestamps, so `PiFlowStore(sessionID, now = Date.now)` takes an injectable clock and stamps the wall clock it observes; tokens/cost are unavailable on this platform.
+
+**What omp actually provides, measured.** Running `omp -e dist/extension.js` (omp 18.0.8) confirms the extension loads — it announces itself under `FLOW_PANEL_DEBUG`. Driving the built bundle through the documented event sequence then shows what the adapter can and cannot render: **duration only**, no token counts and no cost, because Pi's events carry neither. `oh_my_pi_delegate_task` is recognised as a sub-agent launch, and a turn with no text, reasoning or tools becomes `Orchestration`.
+
+Note the observation gap: omp's `-p` mode exits as soon as the answer lands, taking the panel with it, and a slash command passed to `-p` reaches the model as ordinary text rather than being dispatched. A live omp panel therefore has to be opened from inside the interactive TUI; it cannot be driven from a script.
 
 `PiSessionTracker extends BaseSessionTracker<PiFlowStore>` — adds `dispatchBySession` and defaults the fork ordering key to `Date.now()` (Pi's `session_start{reason:"fork", previousSessionFile}` carries no timestamp; parent id = basename without `.json`, fallback `lastActiveSessionID`).
 

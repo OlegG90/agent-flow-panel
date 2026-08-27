@@ -36,7 +36,7 @@ A conversation between the human and the agent, made up of several Units of Work
 The internal work of a sub-agent, revealed as a nested flow of Units of Work beneath its launch node.
 
 **Sub-agent summary**:
-Sub-agent work shown as a summary instead of a tree. Two reasons produce it: more sub-agents ran than are expanded individually, or the platform records none of a sub-agent's steps and only reports what the run cost.
+Sub-agent work shown as a summary instead of a tree. Two reasons produce it: more sub-agents ran than are expanded individually, or the platform records none of a sub-agent's steps and only reports a summary of the run.
 _Avoid_: filing it as Orchestration — that is the harness's own work, not the sub-agent's
 
 **Orchestration**:
