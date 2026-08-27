@@ -6,7 +6,7 @@ Live flowchart of the session in the browser: step tree on the left (60%), selec
 
 `src/server/panel-server.ts`:
 - Every route requires the per-run access token: `?t=<token>`; without it → `401`. `url(path?)` builds a tokenized URL (`url()` → `/?t=…`, `url("data")` → `/data?t=…`).
-- `GET /` → `renderPanelHtml(getTree())` (full HTML with `STYLES` + `CLIENT_SCRIPT`)
+- `GET /` → `renderPanelHtml(getTree())` (full HTML with the stylesheet and client script inlined)
 - `GET /data` → `JSON FlowTree`
 - `GET /node?id=<id>` → one step's full `content`/`reasoning` (looked up on the collapsed tree, so it agrees with what was rendered); `404` for an unknown id
 - `GET /export` → the standalone snapshot as `attachment; filename="agent-flow.html"`
@@ -17,7 +17,7 @@ Opened via `execFile("cmd /c start")` / `open` / `xdg-open` from `openInBrowser`
 
 ## Render
 
-`src/flow/render.ts`:
+`src/flow/render.ts` (tree rendering and page assembly; the stylesheet lives in `panel-styles.ts` and the browser half in `panel-client.ts`):
 - `collapseTurn` merges each `ModelCall` with its single `ModelReply` before walking (display only — the domain keeps both; the `ModelCall` id is preserved so collapse/selection survive)
 - `walk(node, leaf)` recursively, `textLeaf` (for `flow_tree`) and `htmlLeaf` (for panel)
 - `metrics(node)` → duration / `1.2k→380 tok (900 cached)` / `$0.0042` badges; `unitSummary` totals them per unit in the heading. Nodes without reported metrics render unchanged.
@@ -26,7 +26,7 @@ Opened via `execFile("cmd /c start")` / `open` / `xdg-open` from `openInBrowser`
 - `Plan` chips above `steps`: `pending` grey, `in-progress` yellow, `completed` green. Plan items still to be started are also previewed inline as dashed `planned` nodes at the tail of the unit — completed and in-progress ones are not, their work is already visible as real steps.
 - Types → CSS: `step--user-request` blue, `model-call` purple, `tool-call` yellow, `orchestration` grey dashed 0.6, `subtask` purple background
 
-Client (`CLIENT_SCRIPT`):
+Client (`src/flow/panel-client.ts`, behaviour covered by `panel-client.test.ts` driving the real page in jsdom):
 - `EventSource("/events" + location.search)` (carries the token) replaces `#flow` innerHTML (single-line `renderFlowHtml` for SSE)
 - `collapsed: Set<id>` keeps collapsed nodes between updates, `selectedId` — highlight `step--selected` + details panel
 - Details are fetched on select and refetched only when the selection or that step's `data-state` changes

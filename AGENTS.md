@@ -2,7 +2,7 @@
 
 ## Status
 
-An **OpenCode plugin** (TypeScript) that visualizes an agent's work as a live flowchart panel. First code landed: server plugin skeleton with a `/flow` command that opens the Panel stub (ticket 01, resolved). Domain model: `CONTEXT.md`. Design decisions: `docs/adr/`.
+A **TypeScript plugin** that visualizes an agent's work as a live flowchart panel, running on **OpenCode**, **Claude Code**, **Pi** and **oh-my-pi / omp** from one codebase. Released as `v0.2.0`. Domain model: `CONTEXT.md`. Design decisions: `docs/adr/`. Architecture: `docs/architecture.md`.
 
 ## Working here
 

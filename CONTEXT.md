@@ -17,7 +17,7 @@ The model's raw response to a ModelCall, including any embedded reasoning.
 _Avoid_: "міркування" as a separate node
 
 **ToolCall**:
-One invocation of one tool by the agent; launching a sub-agent is a ToolCall of the `task` tool.
+One invocation of one tool by the agent; launching a sub-agent is a ToolCall of whichever tool the platform uses for it (`task`, `Agent`, `oh_my_pi_delegate_task`).
 _Avoid_: "запуск інструментів" as a single aggregate step
 
 **ToolResult**:

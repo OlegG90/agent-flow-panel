@@ -7,7 +7,7 @@ Plugin that visualizes agent work as a **live flowchart in the browser**: step t
 
 ## What it is
 
-Every step carries its duration. Token counts come from OpenCode and Claude Code; cost only from OpenCode, which is the one platform that reports it. Each human request is a **Unit of Work** — a tree `UserRequest → ModelCall → ModelReply → ToolCall → ToolResult → Answer`. Sub-agents expand under their `ToolCall{subtask}`, >3 collapse into `Sub-agent summary`, empty `oh-my-pi` turns become `Orchestration` (dashed). The panel updates via SSE without reload.
+Every step carries its duration. Token counts come from OpenCode and Claude Code; cost only from OpenCode, which is the one platform that reports it. Each human request is a **Unit of Work** — a tree `UserRequest → ModelCall → ModelReply → ToolCall → ToolResult → Answer`. On OpenCode and Pi, sub-agents expand under their `ToolCall{subtask}` and >3 collapse into `Sub-agent summary`; Claude Code records none of their steps, so the launch node carries a run summary instead. Harness work — an empty `oh-my-pi` turn, a Claude Code compaction or API error — becomes `Orchestration` (dashed). The panel updates via SSE without reload.
 
 Details: [`docs/concepts.md`](docs/concepts.md) (step types, states), original glossary — [`CONTEXT.md`](CONTEXT.md).
 

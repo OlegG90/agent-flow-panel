@@ -11,11 +11,13 @@ The plugin observes agent work and renders it as a **live flowchart** in the bro
 | **UserRequest** | Human message that starts a `Unit of Work` | `message.updated{role:user}` / `before_agent_start{prompt}` | `request` alone |
 | **ModelCall** | A single LLM invocation | `step-start` / `turn_start` | `model request` |
 | **ModelReply** | Raw response to `ModelCall`, including `reasoning` | `reasoning` delta + `text` delta | `reasoning` as a separate node |
-| **ToolCall** | One invocation of one tool. Sub-agent launch (`task` in OpenCode, `oh_my_pi_delegate_task`/`oh_my_pi_subagent` in omp) is also `ToolCall{subtask:true}` | `tool` part `pending→running` / `tool_call` | `tool launch` as a single aggregate |
+| **ToolCall** | One invocation of one tool. Sub-agent launch is also `ToolCall{subtask:true}`: `task` in OpenCode, `Agent` (older: `Task`) in Claude Code, `oh_my_pi_delegate_task`/`oh_my_pi_subagent` in omp | `tool` part `pending→running` / `tool_call` / `tool_use` block | `tool launch` as a single aggregate |
 | **ToolResult** | Output of `ToolCall` (nested under it) | `tool.state=completed` → `tool-result` | — |
 | **Answer** | Final message shown to the human | `session.idle`/`agent_end` + last `ModelReply.text` | `result` |
-| **Orchestration** | Empty turn with no text/tools — `oh-my-pi` bookkeeping (worktree, queue) | `finishTurn` without content → converted to `orchestration` (dashed, `opacity:0.6`) | hiding it |
-| **Sub-agent summary** | Single node collapsing >3 `Subtask` | `SessionTracker.compose` when `refs.length>3` | — |
+| **Orchestration** | Harness work around the model. **oh-my-pi**: an empty turn (worktree, queue). **Claude Code**: a `system` record that changed the run — compaction, API error, model fallback, local command | `finishTurn` without content, or a `system` record of one of four subtypes | hiding it — or showing every harness record |
+| **Sub-agent summary** | Single node collapsing >3 `Subtask` | `BaseSessionTracker.compose` when `refs.length>3` (OpenCode and Pi only) | — |
+
+| **planned** | A `Plan` item declared but not started, previewed at the tail of the unit | render only — no reducer emits it | — |
 
 Every node has a `State`: `pending` (from Plan, dashed), `running` (pulse), `completed` (`done`), `failed` (red).
 
@@ -23,8 +25,8 @@ Every node has a `State`: `pending` (from Plan, dashed), `running` (pulse), `com
 
 - **Session** — conversation between human and agent, consisting of several `Unit of Work`.
 - **Unit of Work** — one `UserRequest` plus the full step tree that fulfills it.
-- **Subtask** — internal work of a sub-agent, nested as `Unit(s)` under the launch node.
-- **Plan** — agent-declared upcoming steps (`todo.updated` → `PlanItem{pending|in-progress|completed}`, filters `cancelled`). Empty in Pi (no core primitive).
+- **Subtask** — internal work of a sub-agent, nested as `Unit(s)` under the launch node on OpenCode and Pi. **Claude Code records none of it**: the launch node carries the brief, the report and a run summary instead.
+- **Plan** — agent-declared upcoming steps → `PlanItem{pending|in-progress|completed}`. From `todo.updated` in OpenCode (filters `cancelled`) and from `TodoWrite` calls in Claude Code; empty in Pi, which has no such primitive.
 - **Panel** — live flowchart of the session (`/` → HTML, `/data` → JSON, `/events` → SSE; all gated by `?t=<token>`).
 
 ## Relationships
@@ -32,7 +34,7 @@ Every node has a `State`: `pending` (from Plan, dashed), `running` (pulse), `com
 ```
 UserRequest
   └─ ModelCall ── ModelReply ─┬─ ToolCall ── ToolResult
-                              ├─ ToolCall{subtask} ── [grafted child Unit(s) | summary]
+                              ├─ ToolCall{subtask} ── [grafted child Unit(s) | summary]   (not on Claude Code)
                               └─ Orchestration (if turn was empty)
   └─ Answer
   └─ Plan chips (above steps)
