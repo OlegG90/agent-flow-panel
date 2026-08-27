@@ -8,7 +8,7 @@
         "type": "user-request",
         "label": "User request",
         "state": "completed",
-        "content": "Запусти п'ять саб-агентів для перевірки різних моделей",
+        "content": "Run five sub-agents to check different models",
         "children": []
       },
       "steps": [
@@ -24,7 +24,7 @@
               "type": "model-reply",
               "label": "Model reply",
               "state": "completed",
-              "content": "Запускаю саб-агентів.",
+              "content": "Launching the sub-agents.",
               "children": [
                 {
                   "id": "launch-agent1",
@@ -171,7 +171,7 @@
               "type": "model-reply",
               "label": "Model reply",
               "state": "completed",
-              "content": "Решта агентів підсумовано.",
+              "content": "The remaining agents are summarized.",
               "children": []
             }
           ]
@@ -188,7 +188,7 @@
               "type": "model-reply",
               "label": "Model reply",
               "state": "completed",
-              "content": "Останній агент також у підсумку.",
+              "content": "The last agent is in the summary as well.",
               "children": []
             }
           ]
@@ -206,7 +206,7 @@
           "type": "answer",
           "label": "Answer",
           "state": "completed",
-          "content": "П'ять саб-агентів: перші три детально, решту згорнуто.",
+          "content": "Five sub-agents: the first three in detail, the rest collapsed.",
           "children": []
         }
       ],

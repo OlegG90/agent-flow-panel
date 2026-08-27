@@ -8,7 +8,7 @@
         "type": "user-request",
         "label": "User request",
         "state": "completed",
-        "content": "Порівняй ціни на використання моделей через OpenCode Go, OpenCode Zen та OpenRouter",
+        "content": "Compare model pricing across OpenCode Go, OpenCode Zen and OpenRouter",
         "children": []
       },
       "steps": [
@@ -24,7 +24,7 @@
               "type": "model-reply",
               "label": "Model reply",
               "state": "completed",
-              "content": "Розсилаю два дослідження цін: OpenCode Zen/Go та OpenRouter.",
+              "content": "Dispatching two pricing investigations: OpenCode Zen/Go and OpenRouter.",
               "reasoning": "The user wants a price comparison across three gateways. I need official per-token rates from primary sources.",
               "children": [
                 {
@@ -184,7 +184,7 @@
               "type": "model-reply",
               "label": "Model reply",
               "state": "completed",
-              "content": "Порівняння готове: для флагманів Zen ≈ OpenRouter ≈ list; для Google/GPT-молодших рівнів OpenRouter найдешевший; Go — підписка лише на open-моделі.",
+              "content": "Comparison done: for flagships Zen ≈ OpenRouter ≈ list price; for the smaller Google/GPT tiers OpenRouter is cheapest; Go is a subscription covering open models only.",
               "children": []
             }
           ]
@@ -194,7 +194,7 @@
           "type": "answer",
           "label": "Answer",
           "state": "completed",
-          "content": "Порівняння готове: для флагманів Zen ≈ OpenRouter ≈ list; для Google/GPT-молодших рівнів OpenRouter найдешевший; Go — підписка лише на open-моделі.",
+          "content": "Comparison done: for flagships Zen ≈ OpenRouter ≈ list price; for the smaller Google/GPT tiers OpenRouter is cheapest; Go is a subscription covering open models only.",
           "children": []
         }
       ],
