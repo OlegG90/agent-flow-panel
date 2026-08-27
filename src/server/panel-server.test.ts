@@ -155,6 +155,24 @@ describe("panel server", () => {
     assert.equal((await fetch(panel.url("node"))).status, 404)
   })
 
+  it("exports a standalone snapshot as a download", async (t) => {
+    const panel = createPanelServer({ getTree: () => tree })
+    await panel.start()
+    t.after(() => panel.close())
+
+    const response = await fetch(panel.url("export"))
+    assert.equal(response.status, 200)
+    assert.match(response.headers.get("content-disposition") ?? "", /attachment/)
+    assert.match(response.headers.get("content-disposition") ?? "", /agent-flow\.html/)
+
+    const html = await response.text()
+    assert.ok(html.includes("Hello"), "carries the flow")
+    assert.ok(html.includes("const LIVE = false"), "does not try to reach a server")
+    assert.ok(!html.includes("new EventSource"), "no event stream in a saved page")
+    assert.ok(!html.includes('id="export-link"'), "no export button inside an export")
+    assert.ok(html.includes('data-content="Hello"'), "content is inlined so details still work")
+  })
+
   it("returns 404 for unknown routes", async (t) => {
     const panel = createPanelServer({ getTree: () => tree })
     await panel.start()

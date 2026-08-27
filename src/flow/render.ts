@@ -4,6 +4,7 @@ import { VERSION } from "../version.ts"
 export const FLOW_CONTAINER_ID = "flow"
 export const EVENTS_PATH = "/events"
 export const NODE_PATH = "/node"
+export const EXPORT_PATH = "/export"
 
 const STATE_LABEL: Record<StepNode["state"], string> = {
   pending: "pending",
@@ -99,6 +100,10 @@ function totalsOf(unit: UnitOfWork): UnitTotals {
   return totals
 }
 
+function attrEscape(value: string): string {
+  return escapeHtml(value).replaceAll("\n", "&#10;")
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -192,14 +197,24 @@ function textLeaf({ node, inner, depth }: WalkContext): string {
   return lines.join("\n")
 }
 
-function htmlLeaf({ node, inner }: WalkContext): string {
+/**
+ * `inlineContent` is for the static export only: a saved page has no server to
+ * fetch details from, so it pays the size to stay self-contained. Live frames
+ * never inline — that is the whole point of the /node endpoint.
+ */
+function makeHtmlLeaf(inlineContent: boolean): (ctx: WalkContext) => string {
+  return ({ node, inner }: WalkContext): string => {
   const hasChildren = inner ? " has-children" : ""
   const subtaskClass = node.subtask ? " step--subtask" : ""
   const toggle = inner ? '<button class="step-toggle" type="button" aria-label="Toggle">▾</button>' : ""
   const badge = node.subtask ? '<span class="step-badge">sub-agent</span>' : ""
-  // Full content stays out of the frame and is fetched per node on demand:
-  // inlining it re-sent the entire transcript on every update.
-  const hasDetail = node.content.length > 0 || node.reasoning ? ' data-detail="1"' : ""
+  const hasDetail = inlineContent
+    ? `${node.content.length > 0 ? ` data-content="${attrEscape(node.content)}"` : ""}${
+        node.reasoning ? ` data-reasoning="${attrEscape(node.reasoning)}"` : ""
+      }`
+    : node.content.length > 0 || node.reasoning
+      ? ' data-detail="1"'
+      : ""
   const parts = [
     `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}${hasChildren}${subtaskClass}" data-id="${escapeHtml(node.id)}" data-type="${node.type}" data-state="${node.state}"${hasDetail}>`,
     toggle,
@@ -221,7 +236,11 @@ function htmlLeaf({ node, inner }: WalkContext): string {
   }
   parts.push("</li>")
   return parts.join("")
+  }
 }
+
+const htmlLeaf = makeHtmlLeaf(false)
+const staticHtmlLeaf = makeHtmlLeaf(true)
 
 function renderPlan(plan: PlanItem[], format: "text" | "html"): string {
   if (plan.length === 0) {
@@ -296,7 +315,7 @@ function unitText(unit: UnitOfWork, index: number): string {
   return lines.join("\n")
 }
 
-function unitHtml(unit: UnitOfWork, index: number): string {
+function unitHtml(unit: UnitOfWork, index: number, leaf = htmlLeaf): string {
   const summary = unitSummary(unit)
     .map((value) => `<span class="unit-metric">${escapeHtml(value)}</span>`)
     .join("")
@@ -304,10 +323,10 @@ function unitHtml(unit: UnitOfWork, index: number): string {
     '<section class="unit">',
     `<h2 class="unit-title">Unit of Work #${index + 1}${summary}</h2>`,
     renderPlan(unit.plan, "html"),
-    `<ol class="steps">${walk(unit.request, 0, htmlLeaf)}${unit.steps
-      .map((step) => walk(collapseTurn(step), 0, htmlLeaf))
+    `<ol class="steps">${walk(unit.request, 0, leaf)}${unit.steps
+      .map((step) => walk(collapseTurn(step), 0, leaf))
       .join("")}${plannedNodes(unit)
-      .map((planned) => walk(planned, 0, htmlLeaf))
+      .map((planned) => walk(planned, 0, leaf))
       .join("")}</ol>`,
     "</section>",
   ].join("")
@@ -322,8 +341,8 @@ export function renderTree(tree: FlowTree): string {
   return lines.join("\n").trimEnd() || "(no flow recorded)"
 }
 
-export function renderFlowHtml(tree: FlowTree): string {
-  const units = tree.units.map((unit, index) => unitHtml(unit, index)).join("")
+export function renderFlowHtml(tree: FlowTree, leaf = htmlLeaf): string {
+  const units = tree.units.map((unit, index) => unitHtml(unit, index, leaf)).join("")
   const empty = tree.units.length === 0 ? '<p class="empty">No flow recorded yet.</p>' : ""
   return units + empty
 }
@@ -407,7 +426,7 @@ h1 { font-size: 1.25rem; }
 .toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .toolbar-search { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; min-width: 12rem; }
 .toolbar-search:focus { outline: none; border-color: var(--selected); }
-.toolbar-button, .toolbar-toggle { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.8rem; }
+.toolbar-button, .toolbar-toggle { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.8rem; text-decoration: none; display: inline-block; }
 .toolbar-button:hover, .toolbar-toggle:hover { border-color: var(--selected); color: var(--selected); }
 .toolbar-toggle[aria-pressed="true"] { border-color: var(--selected); color: var(--selected); background: rgba(34, 211, 238, 0.12); }
 .step--hidden { display: none; }
@@ -453,9 +472,26 @@ h1 { font-size: 1.25rem; }
 }
 `
 
-const CLIENT_SCRIPT = `
+// Only the live page talks to a server; the export must not ship this at all.
+const LIVE_BLOCK = `
+  // Carry the page's access token (?t=…) over to the event stream.
+  const source = new EventSource("${EVENTS_PATH}" + window.location.search);
+  source.onmessage = (event) => {
+    flow.innerHTML = event.data;
+    applyCollapsed();
+    applySelected();
+    applyFilter();
+    applyFollow();
+  };
+  const exportLink = document.getElementById("export-link");
+  if (exportLink) exportLink.href = "${EXPORT_PATH}" + window.location.search;
+`
+
+function clientScript(live: boolean): string {
+  return `
 <script>
 (() => {
+  const LIVE = ${live ? "true" : "false"};
   const flow = document.getElementById("${FLOW_CONTAINER_ID}");
   const details = document.getElementById("details");
   const layout = document.getElementById("layout");
@@ -513,6 +549,15 @@ const CLIENT_SCRIPT = `
     if (!id) return;
     loadedFor = id;
     loadedState = step.getAttribute("data-state");
+    if (!LIVE) {
+      // A saved page has no server: the export inlines what it needs.
+      renderDetails(step, {
+        label: "",
+        content: step.getAttribute("data-content") || "",
+        reasoning: step.getAttribute("data-reasoning") || "",
+      });
+      return;
+    }
     if (step.getAttribute("data-detail") !== "1") {
       renderDetails(step, null);
       return;
@@ -596,15 +641,7 @@ const CLIENT_SCRIPT = `
       if (value && id) collapsed.add(id);
     }
   };
-  // Carry the page's access token (?t=…) over to the event stream.
-  const source = new EventSource("${EVENTS_PATH}" + window.location.search);
-  source.onmessage = (event) => {
-    flow.innerHTML = event.data;
-    applyCollapsed();
-    applySelected();
-    applyFilter();
-    applyFollow();
-  };
+${live ? LIVE_BLOCK : ""}
   flow.addEventListener("click", (event) => {
     const toggle = event.target.closest(".step-toggle");
     if (toggle) {
@@ -643,8 +680,13 @@ const CLIENT_SCRIPT = `
 })();
 </script>
 `
+}
 
-export function renderPanelHtml(tree: FlowTree): string {
+/**
+ * `live: false` renders a self-contained snapshot: content inlined, no event
+ * stream, no export button — what /export hands the user to keep or share.
+ */
+function renderPage(tree: FlowTree, live: boolean): string {
   return [
     "<!doctype html>",
     '<html lang="en">',
@@ -662,15 +704,28 @@ export function renderPanelHtml(tree: FlowTree): string {
     '<button id="follow-toggle" class="toolbar-toggle" type="button" aria-pressed="false">Follow</button>',
     '<button id="collapse-all" class="toolbar-button" type="button">Collapse all</button>',
     '<button id="expand-all" class="toolbar-button" type="button">Expand all</button>',
+    live ? '<a id="export-link" class="toolbar-button" href="#" download="agent-flow.html">Export</a>' : "",
     '<button id="details-toggle" type="button">Hide details</button>',
     "</div>",
     "</header>",
     '<main class="layout" id="layout">',
-    `<div class="flow" id="${FLOW_CONTAINER_ID}">${renderFlowHtml(tree)}</div>`,
+    `<div class="flow" id="${FLOW_CONTAINER_ID}">${renderFlowHtml(
+      tree,
+      live ? htmlLeaf : staticHtmlLeaf,
+    )}</div>`,
     '<aside class="details" id="details"><p class="details-empty">Select a step to see its details.</p></aside>',
     "</main>",
-    CLIENT_SCRIPT,
+    clientScript(live),
     "</body>",
     "</html>",
   ].join("")
+}
+
+export function renderPanelHtml(tree: FlowTree): string {
+  return renderPage(tree, true)
+}
+
+/** A standalone snapshot that keeps working after the server is gone. */
+export function renderExportHtml(tree: FlowTree): string {
+  return renderPage(tree, false)
 }

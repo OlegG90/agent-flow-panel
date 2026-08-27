@@ -15,6 +15,7 @@
   --failed: #f87171;
   --subtask-summary: #c084fc;
   --orchestration: #6b7280;
+  --planned: #64748b;
   --selected: #22d3ee;
 }
 * { box-sizing: border-box; }
@@ -46,6 +47,8 @@ h1 { font-size: 1.25rem; }
 .step-badge { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; background: var(--subtask-summary); color: #161618; border-radius: 999px; padding: 0.05rem 0.45rem; margin-left: 0.5rem; }
 .step--subtask { background: rgba(192, 132, 252, 0.08); }
 .step--subtask > .steps--nested { border-left-color: var(--subtask-summary); }
+.step-metric { font-size: 0.7rem; font-variant-numeric: tabular-nums; color: var(--muted); background: rgba(255, 255, 255, 0.04); border-radius: 4px; padding: 0.05rem 0.4rem; margin-left: 0.35rem; }
+.unit-metric { font-size: 0.7rem; font-weight: 400; font-variant-numeric: tabular-nums; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.5rem; margin-left: 0.4rem; }
 .step-content { color: var(--muted); margin-left: 0.5rem; }
 .step-reasoning { color: var(--muted); font-style: italic; margin-top: 0.25rem; font-size: 0.85rem; }
 .step--user-request { border-color: var(--user-request); }
@@ -56,6 +59,8 @@ h1 { font-size: 1.25rem; }
 .step--answer { border-color: var(--answer); }
 .step--subtask-summary { border-color: var(--subtask-summary); }
 .step--orchestration { border-color: var(--orchestration); border-style: dashed; opacity: 0.6; }
+.step--planned { border-color: var(--planned); border-style: dashed; opacity: 0.55; }
+.step--planned .step-label { font-weight: 400; }
 .step--done { opacity: 1; }
 .step--pending { opacity: 0.45; border-style: dashed; }
 .step--running { opacity: 1; animation: pulse 1.6s ease-in-out infinite; }
@@ -69,6 +74,16 @@ h1 { font-size: 1.25rem; }
 .topbar h1 { margin: 0; }
 #details-toggle { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.8rem; }
 #details-toggle:hover { border-color: var(--selected); color: var(--selected); }
+.toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.toolbar-search { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; min-width: 12rem; }
+.toolbar-search:focus { outline: none; border-color: var(--selected); }
+.toolbar-button, .toolbar-toggle { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.8rem; text-decoration: none; display: inline-block; }
+.toolbar-button:hover, .toolbar-toggle:hover { border-color: var(--selected); color: var(--selected); }
+.toolbar-toggle[aria-pressed="true"] { border-color: var(--selected); color: var(--selected); background: rgba(34, 211, 238, 0.12); }
+.step--hidden { display: none; }
+.step--hit > .step-label { text-decoration: underline; text-decoration-color: var(--selected); text-underline-offset: 3px; }
+/* While filtering, a collapsed ancestor must not hide a match beneath it. */
+.filtering .step.collapsed > .steps--nested { display: block; }
 .layout { display: flex; gap: 1rem; align-items: flex-start; }
 .flow { flex: 3; min-width: 0; }
 .details {
@@ -106,16 +121,24 @@ h1 { font-size: 1.25rem; }
   }
   #details-toggle { position: fixed; top: 0.75rem; right: 0.75rem; z-index: 20; }
 }
-</style></head><body><header class="topbar"><h1>Agent Flow Panel <span style="font-size:0.7em;font-weight:400;color:var(--muted)">v0.1.0</span></h1><button id="details-toggle" type="button">Hide details</button></header><main class="layout" id="layout"><div class="flow" id="flow"><section class="unit"><h2 class="unit-title">Unit of Work #1</h2><ol class="steps"><li class="step step--user-request step--done" data-id="ur-msg_many_agents" data-type="user-request" data-state="completed" data-content="Запусти п&#39;ять саб-агентів для перевірки різних моделей"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Запусти п&#39;ять саб-агентів для перевірки різних моделей</span></li><li class="step step--model-call step--done has-children" data-id="mc-many-1" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done has-children" data-id="mr-many-1" data-type="model-reply" data-state="completed" data-content="Запускаю саб-агентів."><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Запускаю саб-агентів.</span><ol class="steps steps--nested"><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-agent1" data-type="tool-call" data-state="completed" data-content="Agent 1 task"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: agent1</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Agent 1 task</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-agent1" data-type="user-request" data-state="completed" data-content="Agent 1 prompt"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Agent 1 prompt</span></li><li class="step step--model-call step--done has-children" data-id="mc-agent1" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-agent1" data-type="model-reply" data-state="completed" data-content="Agent 1 result"><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Agent 1 result</span></li></ol></li><li class="step step--answer step--done" data-id="ans-agent1" data-type="answer" data-state="completed" data-content="Agent 1 done"><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">Agent 1 done</span></li></ol></li><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-agent2" data-type="tool-call" data-state="completed" data-content="Agent 2 task"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: agent2</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Agent 2 task</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-agent2" data-type="user-request" data-state="completed" data-content="Agent 2 prompt"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Agent 2 prompt</span></li><li class="step step--model-call step--done has-children" data-id="mc-agent2" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-agent2" data-type="model-reply" data-state="completed" data-content="Agent 2 result"><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Agent 2 result</span></li></ol></li><li class="step step--answer step--done" data-id="ans-agent2" data-type="answer" data-state="completed" data-content="Agent 2 done"><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">Agent 2 done</span></li></ol></li><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-agent3" data-type="tool-call" data-state="completed" data-content="Agent 3 task"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: agent3</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Agent 3 task</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-agent3" data-type="user-request" data-state="completed" data-content="Agent 3 prompt"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Agent 3 prompt</span></li><li class="step step--model-call step--done has-children" data-id="mc-agent3" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-agent3" data-type="model-reply" data-state="completed" data-content="Agent 3 result"><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Agent 3 result</span></li></ol></li><li class="step step--answer step--done" data-id="ans-agent3" data-type="answer" data-state="completed" data-content="Agent 3 done"><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">Agent 3 done</span></li></ol></li></ol></li></ol></li><li class="step step--model-call step--done has-children" data-id="mc-many-2" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-many-2" data-type="model-reply" data-state="completed" data-content="Решта агентів підсумовано."><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Решта агентів підсумовано.</span></li></ol></li><li class="step step--model-call step--done has-children" data-id="mc-many-3" data-type="model-call" data-state="completed"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><ol class="steps steps--nested"><li class="step step--model-reply step--done" data-id="mr-many-3" data-type="model-reply" data-state="completed" data-content="Останній агент також у підсумку."><span class="step-label">Model reply</span><span class="step-state">done</span><span class="step-content">Останній агент також у підсумку.</span></li></ol></li><li class="step step--subtask-summary step--done" data-id="summary-msg_many_agents" data-type="subtask-summary" data-state="completed" data-content="agent4, agent5"><span class="step-label">2 more sub-agents</span><span class="step-state">done</span><span class="step-content">agent4, agent5</span></li><li class="step step--answer step--done" data-id="ans-msg_many_agents" data-type="answer" data-state="completed" data-content="П&#39;ять саб-агентів: перші три детально, решту згорнуто."><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">П&#39;ять саб-агентів: перші три детально, решту згорнуто.</span></li></ol></section></div><aside class="details" id="details"><p class="details-empty">Select a step to see its details.</p></aside></main>
+</style></head><body><header class="topbar"><h1>Agent Flow Panel <span style="font-size:0.7em;font-weight:400;color:var(--muted)">v0.1.0</span></h1><div class="toolbar"><input id="filter-search" class="toolbar-search" type="search" placeholder="Filter steps…" aria-label="Filter steps" /><button id="filter-failed" class="toolbar-toggle" type="button" aria-pressed="false">Failed only</button><button id="follow-toggle" class="toolbar-toggle" type="button" aria-pressed="false">Follow</button><button id="collapse-all" class="toolbar-button" type="button">Collapse all</button><button id="expand-all" class="toolbar-button" type="button">Expand all</button><button id="details-toggle" type="button">Hide details</button></div></header><main class="layout" id="layout"><div class="flow" id="flow"><section class="unit"><h2 class="unit-title">Unit of Work #1</h2><ol class="steps"><li class="step step--user-request step--done" data-id="ur-msg_many_agents" data-type="user-request" data-state="completed" data-content="Запусти п&#39;ять саб-агентів для перевірки різних моделей"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Запусти п&#39;ять саб-агентів для перевірки різних моделей</span></li><li class="step step--model-call step--done has-children" data-id="mc-many-1" data-type="model-call" data-state="completed" data-content="Запускаю саб-агентів."><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Model call</span><span class="step-state">done</span><span class="step-content">Запускаю саб-агентів.</span><ol class="steps steps--nested"><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-agent1" data-type="tool-call" data-state="completed" data-content="Agent 1 task"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: agent1</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Agent 1 task</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-agent1" data-type="user-request" data-state="completed" data-content="Agent 1 prompt"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Agent 1 prompt</span></li><li class="step step--model-call step--done" data-id="mc-agent1" data-type="model-call" data-state="completed" data-content="Agent 1 result"><span class="step-label">Model call</span><span class="step-state">done</span><span class="step-content">Agent 1 result</span></li><li class="step step--answer step--done" data-id="ans-agent1" data-type="answer" data-state="completed" data-content="Agent 1 done"><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">Agent 1 done</span></li></ol></li><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-agent2" data-type="tool-call" data-state="completed" data-content="Agent 2 task"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: agent2</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Agent 2 task</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-agent2" data-type="user-request" data-state="completed" data-content="Agent 2 prompt"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Agent 2 prompt</span></li><li class="step step--model-call step--done" data-id="mc-agent2" data-type="model-call" data-state="completed" data-content="Agent 2 result"><span class="step-label">Model call</span><span class="step-state">done</span><span class="step-content">Agent 2 result</span></li><li class="step step--answer step--done" data-id="ans-agent2" data-type="answer" data-state="completed" data-content="Agent 2 done"><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">Agent 2 done</span></li></ol></li><li class="step step--tool-call step--done has-children step--subtask" data-id="launch-agent3" data-type="tool-call" data-state="completed" data-content="Agent 3 task"><button class="step-toggle" type="button" aria-label="Toggle">▾</button><span class="step-label">Sub-agent: agent3</span><span class="step-badge">sub-agent</span><span class="step-state">done</span><span class="step-content">Agent 3 task</span><ol class="steps steps--nested"><li class="step step--user-request step--done" data-id="ur-agent3" data-type="user-request" data-state="completed" data-content="Agent 3 prompt"><span class="step-label">User request</span><span class="step-state">done</span><span class="step-content">Agent 3 prompt</span></li><li class="step step--model-call step--done" data-id="mc-agent3" data-type="model-call" data-state="completed" data-content="Agent 3 result"><span class="step-label">Model call</span><span class="step-state">done</span><span class="step-content">Agent 3 result</span></li><li class="step step--answer step--done" data-id="ans-agent3" data-type="answer" data-state="completed" data-content="Agent 3 done"><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">Agent 3 done</span></li></ol></li></ol></li><li class="step step--model-call step--done" data-id="mc-many-2" data-type="model-call" data-state="completed" data-content="Решта агентів підсумовано."><span class="step-label">Model call</span><span class="step-state">done</span><span class="step-content">Решта агентів підсумовано.</span></li><li class="step step--model-call step--done" data-id="mc-many-3" data-type="model-call" data-state="completed" data-content="Останній агент також у підсумку."><span class="step-label">Model call</span><span class="step-state">done</span><span class="step-content">Останній агент також у підсумку.</span></li><li class="step step--subtask-summary step--done" data-id="summary-msg_many_agents" data-type="subtask-summary" data-state="completed" data-content="agent4, agent5"><span class="step-label">2 more sub-agents</span><span class="step-state">done</span><span class="step-content">agent4, agent5</span></li><li class="step step--answer step--done" data-id="ans-msg_many_agents" data-type="answer" data-state="completed" data-content="П&#39;ять саб-агентів: перші три детально, решту згорнуто."><span class="step-label">Answer</span><span class="step-state">done</span><span class="step-content">П&#39;ять саб-агентів: перші три детально, решту згорнуто.</span></li></ol></section></div><aside class="details" id="details"><p class="details-empty">Select a step to see its details.</p></aside></main>
 <script>
 (() => {
+  const LIVE = false;
   const flow = document.getElementById("flow");
   const details = document.getElementById("details");
   const layout = document.getElementById("layout");
   const detailsToggle = document.getElementById("details-toggle");
+  const search = document.getElementById("filter-search");
+  const failedToggle = document.getElementById("filter-failed");
+  const followToggle = document.getElementById("follow-toggle");
+  const collapseAll = document.getElementById("collapse-all");
+  const expandAll = document.getElementById("expand-all");
   if (!flow || !details || !layout || !detailsToggle) return;
   const collapsed = new Set();
   let selectedId = null;
+  let loadedFor = null;
+  let loadedState = null;
   const esc = (value) => String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -131,21 +154,20 @@ h1 { font-size: 1.25rem; }
   const emptyDetails = () => {
     details.innerHTML = '<p class="details-empty">Select a step to see its details.</p>';
   };
-  const showDetails = (step) => {
-    const id = step.getAttribute("data-id") || "";
+  const renderDetails = (step, node) => {
     const type = step.getAttribute("data-type") || "";
     const state = step.getAttribute("data-state") || "";
     const labelEl = step.querySelector(".step-label");
-    const label = labelEl ? labelEl.textContent : "";
-    const content = step.getAttribute("data-content") || "";
-    const reasoning = step.getAttribute("data-reasoning") || "";
+    const label = node && node.label ? node.label : labelEl ? labelEl.textContent : "";
+    const content = node ? node.content || "" : "";
+    const reasoning = node ? node.reasoning || "" : "";
     const header =
       '<div class="details-header">' +
       '<span class="details-type step--' + esc(type) + '">' + esc(type) + "</span>" +
       '<span class="details-state">' + esc(state) + "</span></div>";
     const body =
       '<div class="details-label">' + esc(label) + "</div>" +
-      '<div class="details-id">' + esc(id) + "</div>";
+      '<div class="details-id">' + esc(step.getAttribute("data-id") || "") + "</div>";
     const contentSection = content
       ? '<div class="details-section"><h3>Content</h3><div class="details-content">' + esc(content) + "</div></div>"
       : "";
@@ -154,16 +176,49 @@ h1 { font-size: 1.25rem; }
       : "";
     details.innerHTML = header + body + contentSection + reasoningSection;
   };
+  // Content is no longer in the frame; fetch the selected node on demand.
+  const loadDetails = (step) => {
+    const id = step.getAttribute("data-id");
+    if (!id) return;
+    loadedFor = id;
+    loadedState = step.getAttribute("data-state");
+    if (!LIVE) {
+      // A saved page has no server: the export inlines what it needs.
+      renderDetails(step, {
+        label: "",
+        content: step.getAttribute("data-content") || "",
+        reasoning: step.getAttribute("data-reasoning") || "",
+      });
+      return;
+    }
+    if (step.getAttribute("data-detail") !== "1") {
+      renderDetails(step, null);
+      return;
+    }
+    fetch("/node" + window.location.search + "&id=" + encodeURIComponent(id))
+      .then((response) => (response.ok ? response.json() : null))
+      .then((node) => {
+        if (selectedId === id) renderDetails(step, node);
+      })
+      .catch(() => {
+        if (selectedId === id) renderDetails(step, null);
+      });
+  };
   const applySelected = () => {
     if (!selectedId) return;
     const step = flow.querySelector('[data-id="' + selectedId + '"]');
     if (!step) {
       selectedId = null;
+      loadedFor = null;
       emptyDetails();
       return;
     }
     step.classList.add("step--selected");
-    showDetails(step);
+    // Refetch only when the step moved on: a running tool keeps growing, a
+    // finished one does not, and refetching per frame would undo the win.
+    if (loadedFor !== selectedId || loadedState !== step.getAttribute("data-state")) {
+      loadDetails(step);
+    }
   };
   const select = (step) => {
     const id = step.getAttribute("data-id");
@@ -171,6 +226,7 @@ h1 { font-size: 1.25rem; }
     if (previous) previous.classList.remove("step--selected");
     if (selectedId === id) {
       selectedId = null;
+      loadedFor = null;
       emptyDetails();
       return;
     }
@@ -178,10 +234,47 @@ h1 { font-size: 1.25rem; }
     step.classList.add("step--selected");
     layout.classList.remove("details-hidden");
     detailsToggle.textContent = "Hide details";
-    showDetails(step);
+    loadDetails(step);
   };
-  const source = new EventSource("/events");
-  source.onmessage = (event) => { flow.innerHTML = event.data; applyCollapsed(); applySelected(); };
+  // A long session is unreadable without a way to narrow it down. Filtering
+  // works on what the frame carries: labels and content previews.
+  const applyFilter = () => {
+    const query = search ? search.value.trim().toLowerCase() : "";
+    const failedOnly = failedToggle && failedToggle.getAttribute("aria-pressed") === "true";
+    const steps = flow.querySelectorAll(".step");
+    for (const step of steps) step.classList.remove("step--hidden", "step--hit");
+    flow.classList.toggle("filtering", Boolean(query) || Boolean(failedOnly));
+    if (!query && !failedOnly) return;
+    for (const step of steps) {
+      const label = step.querySelector(":scope > .step-label");
+      const preview = step.querySelector(":scope > .step-content");
+      const hay = ((label ? label.textContent : "") + " " + (preview ? preview.textContent : "")).toLowerCase();
+      const textOk = !query || hay.indexOf(query) !== -1;
+      const stateOk = !failedOnly || step.getAttribute("data-state") === "failed";
+      if (textOk && stateOk) step.classList.add("step--hit");
+    }
+    // An ancestor of a hit stays visible so the hit keeps its context.
+    for (const step of steps) {
+      if (!step.classList.contains("step--hit") && !step.querySelector(".step--hit")) {
+        step.classList.add("step--hidden");
+      }
+    }
+  };
+  const applyFollow = () => {
+    if (!followToggle || followToggle.getAttribute("aria-pressed") !== "true") return;
+    const running = flow.querySelectorAll('[data-state="running"]');
+    const last = running[running.length - 1];
+    if (last) last.scrollIntoView({ block: "nearest" });
+  };
+  const setAllCollapsed = (value) => {
+    collapsed.clear();
+    for (const step of flow.querySelectorAll(".step.has-children")) {
+      const id = step.getAttribute("data-id");
+      step.classList.toggle("collapsed", value);
+      if (value && id) collapsed.add(id);
+    }
+  };
+
   flow.addEventListener("click", (event) => {
     const toggle = event.target.closest(".step-toggle");
     if (toggle) {
@@ -204,6 +297,19 @@ h1 { font-size: 1.25rem; }
     const hidden = layout.classList.toggle("details-hidden");
     detailsToggle.textContent = hidden ? "Show details" : "Hide details";
   });
+  if (search) search.addEventListener("input", applyFilter);
+  const pressToggle = (button, after) => {
+    if (!button) return;
+    button.addEventListener("click", () => {
+      const next = button.getAttribute("aria-pressed") !== "true";
+      button.setAttribute("aria-pressed", String(next));
+      if (after) after(next);
+    });
+  };
+  pressToggle(failedToggle, applyFilter);
+  pressToggle(followToggle, applyFollow);
+  if (collapseAll) collapseAll.addEventListener("click", () => setAllCollapsed(true));
+  if (expandAll) expandAll.addEventListener("click", () => setAllCollapsed(false));
 })();
 </script>
 </body></html>
