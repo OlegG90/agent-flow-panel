@@ -15,8 +15,10 @@ src/
   server/          # panel-server
   adapters/
     opencode/      # FlowStore, SessionTracker (Event)
+    claude/        # transcript reducer, session-source, mcp-server
     pi/            # PiFlowStore, PiSessionTracker, extension.ts
   server.ts        # OpenCode entry (plugin module)
+  mcp.ts           # Claude Code entry (stdio MCP server)
   extension.ts     # re-export pi (Pi/omp entry)
 ```
 
@@ -33,6 +35,18 @@ The dependency arrow points one way: `flow/` never imports an adapter. Adapter t
 
 `SessionTracker extends BaseSessionTracker<FlowStore>` — adds only `dispatch(event)`: `session.created{parentID}` → `registerChild`, everything else routed by `sessionIDOf`. Composition (sort by `created`, tie-break on `id`, recursive flat graft of `request+steps`, `subtask-summary` beyond the third) lives in the shared base.
 
+### Claude Code (`adapters/claude/`)
+
+Claude Code exposes no plugin event API, so this adapter is **pull, not push**: it reduces the JSONL transcript Claude Code writes to `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`.
+
+- `transcript.ts` — `reduceTranscript(lines)` → `FlowTree`. A human prompt is a `user` record whose `content` is a plain string (tool results arrive as a `tool_result` array); one `requestId` is one `ModelCall`; `text`/`thinking` blocks split into content/reasoning; `tool_use` ↔ `tool_result` link by `tool_use_id` with `is_error`; `TodoWrite.input.todos` becomes the `Plan`; `message.usage` becomes tokens (no cost — Claude Code does not report one).
+- **Timing quirk:** a transcript timestamp is when the line was *written*, and most calls occupy one line, so `startedAt` comes from the preceding record — that gap is the real latency.
+- **Labels:** no `ToolState.title` exists, so it is synthesized from the tool's input (`command`, `file_path`, `pattern`, …).
+- `session-source.ts` — `encodeProjectDir` (every char outside `[a-zA-Z0-9-]` → `-`, verified against every project directory on disk), newest-transcript discovery, and an `fs.watch` that re-resolves when a new session file appears. Re-reduces the whole file (~17ms on 2.8MB) rather than tailing.
+- `mcp-server.ts` — `McpServer` over stdio registering `flow_open`/`flow_panel`/`flow_tree`.
+
+Sub-agents (`isSidechain` + `parentUuid`) are handled but **unverified**: no available transcript contained a sidechain record.
+
 ### Pi / omp (`adapters/pi/`)
 
 `PiFlowStore`:
@@ -46,9 +60,9 @@ Pi events carry no timestamps, so `PiFlowStore(sessionID, now = Date.now)` takes
 
 ## Build & entry points
 
-- `package.json:exports` → `./server` = `src/server.ts`, `./extension` = `src/extension.ts`
+- `package.json:exports` → `./server` = `src/server.ts`, `./extension` = `src/extension.ts`, `./mcp` = `src/mcp.ts`
 - `pi.extensions` + `omp.extensions` → `["./dist/extension.js","./src/extension.ts"]` (jiti dev + bundle prod)
-- `npm run build` → `dist/server.js` (467kb) + `dist/extension.js` (~146kb, `--external:@earendil-works/* --external:@oh-my-pi/*`)
+- `npm run build` → `dist/server.js` (OpenCode) + `dist/extension.js` (Pi/omp, `--external:@earendil-works/* --external:@oh-my-pi/*`) + `dist/mcp.js` (Claude Code, MCP SDK inlined)
 - `src/server.ts` — `tracker`+`panelServer` created **per plugin instance** (not per module), `flow_panel` (reset), `flow_open` (keep), `flow_tree` (text). `server:Plugin{ event→tracker.dispatch }`, `server.instance.disposed` → `panelServer.close()`.
 
 See `docs/adr/0001-external-renderer-for-panel.md` (why browser, not TUI), `0002-pi-and-oh-my-pi-adaptation.md` (dual-platform).
