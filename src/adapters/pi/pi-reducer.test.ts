@@ -153,6 +153,26 @@ describe("PiFlowStore", () => {
     assert.equal(unit.steps[0]!.type, "orchestration")
   })
 
+  it("times turns and tools against the injected clock", () => {
+    let clock = 1000
+    const s = new PiFlowStore(SID, () => clock)
+    s.startUnit("u1", "x")
+    s.startTurn("0")
+    clock = 1500
+    s.onToolCall("c1", "bash", "0")
+    clock = 3600
+    s.onToolResult("c1", "bash", "ok", false)
+    clock = 4000
+    s.finishTurn("0")
+
+    const modelCall = s.tree().units[0]!.steps[0]!
+    assert.equal(modelCall.startedAt, 1000)
+    assert.equal(modelCall.endedAt, 4000)
+    const toolCall = modelCall.children[0]!.children[0]!
+    assert.equal(toolCall.startedAt, 1500)
+    assert.equal(toolCall.endedAt, 3600)
+  })
+
   it("ignores a delegate_task payload split across streaming deltas", () => {
     const s = store()
     s.startUnit("u1", "x")

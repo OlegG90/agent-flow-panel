@@ -87,11 +87,32 @@ export class FlowStore {
 
   private onMessage(message: Message): void {
     this.messageRoles.set(message.id, message.role)
-    if (message.role === "assistant" && message.time.completed !== undefined) {
-      const turn = this.findTurn(message.id)
-      if (turn) {
-        this.completeTurn(turn)
-      }
+    if (message.role !== "assistant") {
+      return
+    }
+    const turn = this.findTurn(message.id)
+    if (!turn) {
+      return
+    }
+    this.applyUsage(turn, message)
+    if (message.time.completed !== undefined) {
+      turn.modelCall.endedAt = message.time.completed
+      turn.modelReply.endedAt = message.time.completed
+      this.completeTurn(turn)
+    }
+  }
+
+  /** Timing, tokens and cost ride along on every assistant message update. */
+  private applyUsage(turn: TurnState, message: Extract<Message, { role: "assistant" }>): void {
+    turn.modelCall.startedAt = message.time.created
+    turn.modelReply.startedAt = message.time.created
+    turn.modelCall.cost = message.cost
+    turn.modelCall.tokens = {
+      input: message.tokens.input,
+      output: message.tokens.output,
+      reasoning: message.tokens.reasoning,
+      cacheRead: message.tokens.cache.read,
+      cacheWrite: message.tokens.cache.write,
     }
   }
 
@@ -251,7 +272,7 @@ export class FlowStore {
       if (!turn) {
         return
       }
-      this.applyToolState(this.ensureLaunchNode(turn, part), part.state)
+      this.applyToolState(this.ensureLaunchNode(turn, part), part.state, part.tool)
       return
     }
     let node = this.toolNodes.get(part.callID)
@@ -264,7 +285,7 @@ export class FlowStore {
       this.toolNodes.set(part.callID, node)
       turn.modelReply.children.push(node)
     }
-    this.applyToolState(node, part.state)
+    this.applyToolState(node, part.state, part.tool)
   }
 
   private ensureLaunchNode(turn: TurnState, part: Extract<Part, { type: "tool" }>): StepNode {
@@ -288,7 +309,20 @@ export class FlowStore {
     return node
   }
 
-  private applyToolState(node: StepNode, state: ToolState): void {
+  private applyToolState(node: StepNode, state: ToolState, toolName: string): void {
+    if (state.status !== "pending") {
+      node.startedAt = state.time.start
+    }
+    if (state.status === "completed" || state.status === "error") {
+      node.endedAt = state.time.end
+    }
+    // `title` is the platform's human summary of the call ("npm test"), which
+    // is what actually distinguishes one step from another when scanning.
+    const title =
+      state.status === "running" || state.status === "completed" ? state.title : undefined
+    if (title && title !== toolName && !node.subtask) {
+      node.label = `Tool: ${toolName} · ${title}`
+    }
     switch (state.status) {
       case "pending":
         node.state = "pending"

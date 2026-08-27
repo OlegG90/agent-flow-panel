@@ -138,6 +138,98 @@ describe("FlowStore", () => {
     assert.equal(toolResult.content, "hello from bash")
   })
 
+  it("records tool timing and promotes the state title into the label", () => {
+    const flow = store([
+      updated(userMessage("m1")),
+      partUpdated(part("p1", "m1", { type: "text", text: "x" })),
+      updated(assistantMessage("m2")),
+      partUpdated(part("p2", "m2", { type: "step-start" })),
+      partUpdated(
+        part("p3", "m2", {
+          type: "tool",
+          callID: "c1",
+          tool: "bash",
+          state: {
+            status: "completed",
+            input: {},
+            output: "ok",
+            title: "npm test",
+            metadata: {},
+            time: { start: 1000, end: 3100 },
+          },
+        }),
+      ),
+    ])
+
+    const toolCall = flow.tree().units[0]!.steps[0]!.children[0]!.children[0]!
+    assert.equal(toolCall.label, "Tool: bash · npm test")
+    assert.equal(toolCall.startedAt, 1000)
+    assert.equal(toolCall.endedAt, 3100)
+  })
+
+  it("records turn timing, tokens and cost from the assistant message", () => {
+    const message = {
+      id: "m2",
+      sessionID: SESSION,
+      role: "assistant",
+      time: { created: 5000, completed: 9500 },
+      parentID: "p",
+      modelID: "m",
+      providerID: "opencode",
+      mode: "primary",
+      path: { cwd: "/c", root: "/r" },
+      cost: 0.0042,
+      tokens: { input: 1200, output: 380, reasoning: 40, cache: { read: 900, write: 0 } },
+    } as Message
+
+    const flow = store([
+      updated(userMessage("m1")),
+      partUpdated(part("p1", "m1", { type: "text", text: "x" })),
+      updated(assistantMessage("m2")),
+      partUpdated(part("p2", "m2", { type: "step-start" })),
+      updated(message),
+    ])
+
+    const modelCall = flow.tree().units[0]!.steps[0]!
+    assert.equal(modelCall.startedAt, 5000)
+    assert.equal(modelCall.endedAt, 9500)
+    assert.equal(modelCall.cost, 0.0042)
+    assert.deepEqual(modelCall.tokens, {
+      input: 1200,
+      output: 380,
+      reasoning: 40,
+      cacheRead: 900,
+      cacheWrite: 0,
+    })
+  })
+
+  it("keeps the label unchanged when the title only repeats the tool name", () => {
+    const flow = store([
+      updated(userMessage("m1")),
+      partUpdated(part("p1", "m1", { type: "text", text: "x" })),
+      updated(assistantMessage("m2")),
+      partUpdated(part("p2", "m2", { type: "step-start" })),
+      partUpdated(
+        part("p3", "m2", {
+          type: "tool",
+          callID: "c1",
+          tool: "bash",
+          state: {
+            status: "completed",
+            input: {},
+            output: "ok",
+            title: "bash",
+            metadata: {},
+            time: { start: 1, end: 2 },
+          },
+        }),
+      ),
+    ])
+
+    const toolCall = flow.tree().units[0]!.steps[0]!.children[0]!.children[0]!
+    assert.equal(toolCall.label, "Tool: bash")
+  })
+
   it("marks a failed tool call", () => {
     const flow = store([
       updated(userMessage("m1")),

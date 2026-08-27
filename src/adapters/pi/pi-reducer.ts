@@ -67,9 +67,15 @@ export class PiFlowStore {
   private openUnit: UnitState | null = null
   private readonly toolNodes = new Map<string, StepNode>()
   private pendingRequest = ""
+  private readonly now: () => number
 
-  constructor(sessionID: string) {
+  /**
+   * Pi's events carry no timestamps, so durations are the wall clock observed
+   * by the extension. The clock is injectable to keep tests deterministic.
+   */
+  constructor(sessionID: string, now: () => number = Date.now) {
     this.sessionID = sessionID
+    this.now = now
   }
 
   tree(): FlowTree {
@@ -121,6 +127,8 @@ export class PiFlowStore {
     const modelCall = makeNode(`mc-${turnId}`, "model-call", "Model call", "running")
     const modelReply = makeNode(`mr-${turnId}`, "model-reply", "Model reply", "running")
     modelCall.children.push(modelReply)
+    modelCall.startedAt = this.now()
+    modelReply.startedAt = modelCall.startedAt
     unit.steps.push(modelCall)
     unit.turns.push({ id: turnId, modelCall, modelReply, text: "", reasoning: "" })
   }
@@ -153,6 +161,8 @@ export class PiFlowStore {
     if (!turn) return
     turn.modelCall.state = "completed"
     turn.modelReply.state = "completed"
+    turn.modelCall.endedAt = this.now()
+    turn.modelReply.endedAt = turn.modelCall.endedAt
     // Empty turn (no text/reasoning/tools) is oh-my-pi bookkeeping
     // (worktree setup, queue poll). Keep it but as distinct "orchestration"
     // type — user requested not to hide even empty steps.
@@ -190,6 +200,7 @@ export class PiFlowStore {
       content = task || category || ""
     }
     node = makeNode(`tc-${toolCallId}`, "tool-call", label, "running", content)
+    node.startedAt = this.now()
     if (isSubtask) node.subtask = true
     this.toolNodes.set(toolCallId, node)
     turn.modelReply.children.push(node)
@@ -204,6 +215,7 @@ export class PiFlowStore {
       this.onToolCall(toolCallId, toolName, toolCallId)
       return this.onToolResult(toolCallId, toolName, result, isError)
     }
+    node.endedAt = this.now()
     if (isError) {
       node.state = "failed"
       node.content = String(result ?? "error")

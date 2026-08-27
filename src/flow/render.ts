@@ -1,4 +1,4 @@
-import type { FlowTree, PlanItem, StepNode, UnitOfWork } from "./types.ts"
+import type { FlowTree, PlanItem, StepNode, TokenUsage, UnitOfWork } from "./types.ts"
 import { VERSION } from "../version.ts"
 
 export const FLOW_CONTAINER_ID = "flow"
@@ -14,6 +14,88 @@ const STATE_LABEL: Record<StepNode["state"], string> = {
 function truncate(text: string, max = 80): string {
   const compact = text.replace(/\s+/g, " ").trim()
   return compact.length > max ? `${compact.slice(0, max)}…` : compact
+}
+
+export function formatDuration(ms: number): string {
+  if (ms < 0) {
+    return ""
+  }
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`
+  }
+  if (ms < 60_000) {
+    return `${(ms / 1000).toFixed(1)}s`
+  }
+  const minutes = Math.floor(ms / 60_000)
+  const seconds = Math.round((ms % 60_000) / 1000)
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`
+}
+
+function duration(node: StepNode): string {
+  if (node.startedAt === undefined || node.endedAt === undefined) {
+    return ""
+  }
+  return formatDuration(node.endedAt - node.startedAt)
+}
+
+export function formatTokens(tokens: TokenUsage): string {
+  const compact = (value: number): string =>
+    value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value)
+  const cached = tokens.cacheRead > 0 ? ` (${compact(tokens.cacheRead)} cached)` : ""
+  return `${compact(tokens.input)}→${compact(tokens.output)} tok${cached}`
+}
+
+export function formatCost(cost: number): string {
+  if (cost === 0) {
+    return "$0"
+  }
+  return cost < 0.01 ? `$${cost.toFixed(4)}` : `$${cost.toFixed(2)}`
+}
+
+/** The badges that answer "how long did this take and what did it cost". */
+function metrics(node: StepNode): string[] {
+  const out: string[] = []
+  const elapsed = duration(node)
+  if (elapsed) {
+    out.push(elapsed)
+  }
+  if (node.tokens) {
+    out.push(formatTokens(node.tokens))
+  }
+  if (node.cost !== undefined && node.cost > 0) {
+    out.push(formatCost(node.cost))
+  }
+  return out
+}
+
+interface UnitTotals {
+  cost: number
+  tokens: number
+  elapsed: number
+}
+
+function totalsOf(unit: UnitOfWork): UnitTotals {
+  const totals: UnitTotals = { cost: 0, tokens: 0, elapsed: 0 }
+  let earliest = Number.POSITIVE_INFINITY
+  let latest = 0
+  const visit = (node: StepNode): void => {
+    totals.cost += node.cost ?? 0
+    if (node.tokens) {
+      totals.tokens += node.tokens.input + node.tokens.output
+    }
+    if (node.startedAt !== undefined) {
+      earliest = Math.min(earliest, node.startedAt)
+    }
+    if (node.endedAt !== undefined) {
+      latest = Math.max(latest, node.endedAt)
+    }
+    node.children.forEach(visit)
+  }
+  unit.steps.forEach(visit)
+  if (earliest !== Number.POSITIVE_INFINITY && latest > earliest) {
+    totals.elapsed = latest - earliest
+  }
+  return totals
 }
 
 function escapeHtml(value: string): string {
@@ -43,7 +125,9 @@ function walk(node: StepNode, depth: number, leaf: (ctx: WalkContext) => string)
 function textLeaf({ node, inner, depth }: WalkContext): string {
   const pad = "  ".repeat(depth)
   const content = node.content.length > 0 ? `: ${truncate(node.content)}` : ""
-  const lines = [`${pad}[${STATE_LABEL[node.state]}] ${node.label}${content}`]
+  const meta = metrics(node)
+  const suffix = meta.length > 0 ? ` (${meta.join(", ")})` : ""
+  const lines = [`${pad}[${STATE_LABEL[node.state]}] ${node.label}${suffix}${content}`]
   if (node.reasoning) {
     lines.push(`${pad}  ↳ reasoning: ${truncate(node.reasoning)}`)
   }
@@ -66,6 +150,7 @@ function htmlLeaf({ node, inner }: WalkContext): string {
     `<span class="step-label">${escapeHtml(node.label)}</span>`,
     badge,
     `<span class="step-state">${STATE_LABEL[node.state]}</span>`,
+    ...metrics(node).map((value) => `<span class="step-metric">${escapeHtml(value)}</span>`),
   ]
   if (node.content.length > 0) {
     parts.push(`<span class="step-content">${escapeHtml(truncate(node.content, 120))}</span>`)
@@ -99,8 +184,27 @@ function renderPlan(plan: PlanItem[], format: "text" | "html"): string {
     .join("")}</ul>`
 }
 
+function unitSummary(unit: UnitOfWork): string[] {
+  const totals = totalsOf(unit)
+  const out: string[] = []
+  if (totals.elapsed > 0) {
+    out.push(formatDuration(totals.elapsed))
+  }
+  if (totals.tokens > 0) {
+    out.push(
+      totals.tokens >= 1000 ? `${(totals.tokens / 1000).toFixed(1)}k tok` : `${totals.tokens} tok`,
+    )
+  }
+  if (totals.cost > 0) {
+    out.push(formatCost(totals.cost))
+  }
+  return out
+}
+
 function unitText(unit: UnitOfWork, index: number): string {
-  const lines = [`Unit of Work #${index + 1}: ${truncate(unit.request.content)}`]
+  const summary = unitSummary(unit)
+  const suffix = summary.length > 0 ? ` [${summary.join(" · ")}]` : ""
+  const lines = [`Unit of Work #${index + 1}${suffix}: ${truncate(unit.request.content)}`]
   lines.push(walk(unit.request, 1, textLeaf))
   for (const step of unit.steps) {
     lines.push(walk(step, 1, textLeaf))
@@ -113,9 +217,12 @@ function unitText(unit: UnitOfWork, index: number): string {
 }
 
 function unitHtml(unit: UnitOfWork, index: number): string {
+  const summary = unitSummary(unit)
+    .map((value) => `<span class="unit-metric">${escapeHtml(value)}</span>`)
+    .join("")
   return [
     '<section class="unit">',
-    `<h2 class="unit-title">Unit of Work #${index + 1}</h2>`,
+    `<h2 class="unit-title">Unit of Work #${index + 1}${summary}</h2>`,
     renderPlan(unit.plan, "html"),
     `<ol class="steps">${walk(unit.request, 0, htmlLeaf)}${unit.steps
       .map((step) => walk(step, 0, htmlLeaf))
@@ -187,6 +294,8 @@ h1 { font-size: 1.25rem; }
 .step-badge { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; background: var(--subtask-summary); color: #161618; border-radius: 999px; padding: 0.05rem 0.45rem; margin-left: 0.5rem; }
 .step--subtask { background: rgba(192, 132, 252, 0.08); }
 .step--subtask > .steps--nested { border-left-color: var(--subtask-summary); }
+.step-metric { font-size: 0.7rem; font-variant-numeric: tabular-nums; color: var(--muted); background: rgba(255, 255, 255, 0.04); border-radius: 4px; padding: 0.05rem 0.4rem; margin-left: 0.35rem; }
+.unit-metric { font-size: 0.7rem; font-weight: 400; font-variant-numeric: tabular-nums; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.5rem; margin-left: 0.4rem; }
 .step-content { color: var(--muted); margin-left: 0.5rem; }
 .step-reasoning { color: var(--muted); font-style: italic; margin-top: 0.25rem; font-size: 0.85rem; }
 .step--user-request { border-color: var(--user-request); }

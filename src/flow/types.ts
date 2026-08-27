@@ -10,6 +10,15 @@ export type StepType =
 
 export type StepState = "pending" | "running" | "completed" | "failed"
 
+/** What one model call consumed, as reported by the platform. */
+export interface TokenUsage {
+  input: number
+  output: number
+  reasoning: number
+  cacheRead: number
+  cacheWrite: number
+}
+
 export interface StepNode {
   id: string
   type: StepType
@@ -18,6 +27,13 @@ export interface StepNode {
   content: string
   reasoning?: string
   subtask?: boolean
+  /** Epoch ms; present once the platform reports when the step began. */
+  startedAt?: number
+  /** Epoch ms; present once the step reached a terminal state. */
+  endedAt?: number
+  tokens?: TokenUsage
+  /** Cost in USD, as billed by the provider. */
+  cost?: number
   children: StepNode[]
 }
 

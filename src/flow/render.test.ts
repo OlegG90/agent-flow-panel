@@ -1,7 +1,14 @@
 import { describe, it } from "node:test"
 import assert from "node:assert/strict"
 import type { FlowTree } from "./types.ts"
-import { renderFlowHtml, renderPanelHtml, renderTree } from "./render.ts"
+import {
+  formatCost,
+  formatDuration,
+  formatTokens,
+  renderFlowHtml,
+  renderPanelHtml,
+  renderTree,
+} from "./render.ts"
 
 const tree: FlowTree = {
   sessionID: "s1",
@@ -181,6 +188,86 @@ describe("renderPanelHtml", () => {
     assert.ok(planAt !== -1)
     assert.ok(stepsAt !== -1)
     assert.ok(planAt < stepsAt)
+  })
+})
+
+describe("metrics", () => {
+  const metered: FlowTree = {
+    sessionID: "s1",
+    units: [
+      {
+        id: "m1",
+        request: tree.units[0]!.request,
+        steps: [
+          {
+            id: "mc-m2",
+            type: "model-call",
+            label: "Model call",
+            state: "completed",
+            content: "",
+            startedAt: 1_000,
+            endedAt: 5_200,
+            cost: 0.0042,
+            tokens: { input: 1200, output: 380, reasoning: 0, cacheRead: 900, cacheWrite: 0 },
+            children: [
+              {
+                id: "tc-c1",
+                type: "tool-call",
+                label: "Tool: bash · npm test",
+                state: "completed",
+                content: "",
+                startedAt: 1_500,
+                endedAt: 3_600,
+                children: [],
+              },
+            ],
+          },
+        ],
+        plan: [],
+      },
+    ],
+  }
+
+  it("formats durations by magnitude", () => {
+    assert.equal(formatDuration(340), "340ms")
+    assert.equal(formatDuration(2_100), "2.1s")
+    assert.equal(formatDuration(64_000), "1m 04s")
+  })
+
+  it("formats token usage and cost compactly", () => {
+    assert.equal(
+      formatTokens({ input: 1200, output: 380, reasoning: 0, cacheRead: 900, cacheWrite: 0 }),
+      "1.2k→380 tok (900 cached)",
+    )
+    assert.equal(formatCost(0.0042), "$0.0042")
+    assert.equal(formatCost(1.5), "$1.50")
+  })
+
+  it("renders duration, tokens and cost badges on the node", () => {
+    const html = renderFlowHtml(metered)
+    assert.ok(html.includes('<span class="step-metric">4.2s</span>'))
+    assert.ok(html.includes('<span class="step-metric">1.2k→380 tok (900 cached)</span>'))
+    assert.ok(html.includes('<span class="step-metric">$0.0042</span>'))
+    assert.ok(html.includes('<span class="step-metric">2.1s</span>'))
+  })
+
+  it("totals the unit in its heading", () => {
+    const html = renderFlowHtml(metered)
+    assert.ok(html.includes('<span class="unit-metric">4.2s</span>'))
+    assert.ok(html.includes('<span class="unit-metric">1.6k tok</span>'))
+    assert.ok(html.includes('<span class="unit-metric">$0.0042</span>'))
+  })
+
+  it("carries the same numbers into the text tree", () => {
+    const text = renderTree(metered)
+    assert.ok(text.includes("Unit of Work #1 [4.2s · 1.6k tok · $0.0042]"))
+    assert.ok(text.includes("Tool: bash · npm test (2.1s)"))
+  })
+
+  it("omits badges when the platform reported no metrics", () => {
+    const html = renderFlowHtml(tree)
+    assert.ok(!html.includes("step-metric"))
+    assert.ok(!html.includes("unit-metric"))
   })
 })
 
