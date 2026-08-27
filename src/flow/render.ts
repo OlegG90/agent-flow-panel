@@ -182,7 +182,7 @@ function textLeaf({ node, inner, depth }: WalkContext): string {
   const content = node.content.length > 0 ? `: ${truncate(node.content)}` : ""
   const meta = metrics(node)
   const suffix = meta.length > 0 ? ` (${meta.join(", ")})` : ""
-  const lines = [`${pad}[${STATE_LABEL[node.state]}] ${node.label}${suffix}${content}`]
+  const lines = [`${pad}[${STATE_LABEL[node.state]}] ${truncate(node.label, 120)}${suffix}${content}`]
   if (node.reasoning) {
     lines.push(`${pad}  ↳ reasoning: ${truncate(node.reasoning)}`)
   }
@@ -203,7 +203,9 @@ function htmlLeaf({ node, inner }: WalkContext): string {
   const parts = [
     `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}${hasChildren}${subtaskClass}" data-id="${escapeHtml(node.id)}" data-type="${node.type}" data-state="${node.state}"${hasDetail}>`,
     toggle,
-    `<span class="step-label">${escapeHtml(node.label)}</span>`,
+    // Labels carry platform-supplied text (ToolState.title, agent names), so
+    // they go through truncate too: a newline would break the SSE framing.
+    `<span class="step-label">${escapeHtml(truncate(node.label, 120))}</span>`,
     badge,
     `<span class="step-state">${STATE_LABEL[node.state]}</span>`,
     ...metrics(node).map((value) => `<span class="step-metric">${escapeHtml(value)}</span>`),

@@ -210,6 +210,30 @@ describe("renderPanelHtml", () => {
     assert.ok(flowHtml.includes("First line Second line"))
   })
 
+  it("keeps a multi-line node label on a single line for SSE transport", () => {
+    const noisy: FlowTree = {
+      sessionID: "s1",
+      units: [
+        {
+          id: "m1",
+          request: {
+            id: "ur-m1",
+            type: "user-request",
+            label: "Tool: bash · first line\nsecond line",
+            state: "completed",
+            content: "",
+            children: [],
+          },
+          steps: [],
+          plan: [],
+        },
+      ],
+    }
+    const flowHtml = renderFlowHtml(noisy)
+    assert.ok(!flowHtml.includes("\n"))
+    assert.ok(flowHtml.includes("Tool: bash · first line second line"))
+  })
+
   it("renders the plan above the steps it previews", () => {
     const html = renderPanelHtml(tree)
     const planAt = html.indexOf('<ul class="plan">')
