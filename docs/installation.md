@@ -35,15 +35,18 @@ The server provides the same `flow_open` / `flow_panel` / `flow_tree` tools as t
 other adapters. This repository ships `/flow` and `/flow-tree` commands under
 `.claude/commands/`, which call them.
 
-> **Registering at user scope makes this server visible to other agents.**
-> oh-my-pi reads Claude Code's user config, so a `flow-panel` entry in
-> `~/.claude.json` gets loaded by omp too — and since this server reads
-> `~/.claude/projects`, calling `flow_open` from omp opens a **Claude Code**
-> panel, not omp's. Nothing is broken; it is simply the wrong agent's flow.
-> The panel says which agent it belongs to in its title bar, and the tool
-> descriptions say it up front. If you run omp as well, prefer registering
-> this server per project (`-s project`), or accept that omp will list it and
-> read the label before opening.
+> **Other MCP clients will see this server.** oh-my-pi reads Claude Code's
+> config — its user config for skills, commands and MCP servers, and project
+> `.mcp.json` too (`mcp.enableProjectConfig`). Since this server reads
+> `~/.claude/projects`, `flow_open` called from omp opens a **Claude Code**
+> panel rather than omp's. Nothing is broken; it is the wrong agent's flow.
+>
+> Registering per project (`-s project`) narrows the blast radius to one
+> directory instead of the whole machine, but does **not** hide it from omp
+> inside that directory. What actually tells them apart is the labelling: the
+> panel names its agent in the title bar, and the tool descriptions say
+> "Claude Code only" before the call is made. In omp, prefer its own
+> extension (`-e dist/extension.js`), which shows omp's own flow.
 
 It deliberately does **not** ship a `.mcp.json`: such a file could only point at
 `./dist/mcp.js`, which does not exist until you build, so a fresh clone would get an
