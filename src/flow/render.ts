@@ -433,6 +433,7 @@ function renderPage(tree: FlowTree, live: boolean): string {
     '<input id="filter-search" class="toolbar-search" type="search" placeholder="Filter steps…" aria-label="Filter steps" />',
     '<button id="filter-failed" class="toolbar-toggle" type="button" aria-pressed="false">Failed only</button>',
     '<button id="follow-toggle" class="toolbar-toggle" type="button" aria-pressed="false">Follow</button>',
+    '<button id="order-toggle" class="toolbar-toggle" type="button" aria-pressed="false">Newest first</button>',
     '<button id="collapse-all" class="toolbar-button" type="button">Collapse all</button>',
     '<button id="expand-all" class="toolbar-button" type="button">Expand all</button>',
     live ? '<a id="export-link" class="toolbar-button" href="#" download="agent-flow.html">Export</a>' : "",

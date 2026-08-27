@@ -143,6 +143,57 @@ describe("panel client — failed-only toggle", () => {
   })
 })
 
+describe("panel client — unit order", () => {
+  it("starts oldest-first, the order the work happened in", () => {
+    assert.ok(!doc.getElementById("flow")!.classList.contains("newest-first"))
+    assert.equal(win.getComputedStyle(doc.getElementById("flow")!).flexDirection, "column")
+    // The first unit in the DOM is the first one that ran.
+    const first = q(".unit")[0]!
+    assert.match(first.textContent!, /list the files/)
+  })
+
+  it("flips to newest-first without reordering the DOM", () => {
+    const before = q(".unit").map((u) => u.querySelector(".step-content")?.textContent)
+    click("order-toggle")
+    const flow = doc.getElementById("flow")!
+    assert.ok(flow.classList.contains("newest-first"))
+    assert.equal(win.getComputedStyle(flow).flexDirection, "column-reverse")
+    // Reversal is presentational: ids, selection and the /node lookup all key
+    // off the DOM, which must stay in causal order.
+    assert.deepEqual(
+      q(".unit").map((u) => u.querySelector(".step-content")?.textContent),
+      before,
+    )
+    click("order-toggle")
+    assert.ok(!flow.classList.contains("newest-first"))
+  })
+
+  it("relabels the button to name what the next press does", () => {
+    const button = doc.getElementById("order-toggle")!
+    assert.equal(button.textContent, "Newest first")
+    click("order-toggle")
+    assert.equal(button.textContent, "Oldest first")
+    click("order-toggle")
+    assert.equal(button.textContent, "Newest first")
+  })
+
+  it("never reverses the steps inside a unit", () => {
+    // Steps are causally ordered — a tool result after its call. Only the
+    // units flip; reversing inside one would be nonsense.
+    click("order-toggle")
+    const steps = q(".unit")[0]!.querySelector(".steps")!
+    assert.notEqual(win.getComputedStyle(steps).flexDirection, "column-reverse")
+    const labels = [...steps.querySelectorAll(":scope > .step > .step-label")].map((e) => e.textContent)
+    assert.deepEqual(labels, [
+      "User request",
+      "Model call",
+      "Context compacted (auto)",
+      "API error 500",
+    ])
+    click("order-toggle")
+  })
+})
+
 describe("panel client — collapse", () => {
   it("collapses and expands every node that has children", () => {
     click("collapse-all")

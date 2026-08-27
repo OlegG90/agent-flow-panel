@@ -39,7 +39,8 @@ Client (`src/flow/panel-client.ts`, behaviour covered by `panel-client.test.ts` 
 - `EventSource("/events" + location.search)` (carries the token) replaces `#flow` innerHTML (single-line `renderFlowHtml` for SSE)
 - `collapsed: Set<id>` keeps collapsed nodes between updates, `selectedId` — highlight `step--selected` + details panel
 - Details are fetched on select and refetched only when the selection or that step's `data-state` changes
-- Toolbar: text filter over labels/previews (`step--hit` / `step--hidden`, ancestors of a hit stay visible, `filtering` forces collapsed ancestors open), `Failed only`, `Follow` (scrolls to the last running step), `Collapse all` / `Expand all`, `Export`
+- Toolbar: text filter over labels/previews/type (`step--hit` / `step--hidden`, ancestors of a hit stay visible, `filtering` forces collapsed ancestors open), `Failed only`, `Follow` (scrolls to the last running step), `Newest first` (see below), `Collapse all` / `Expand all`, `Export`
+- **Unit order** is a display flip, not a re-sort: `.flow.newest-first` sets `flex-direction: column-reverse`, so the newest Unit of Work sits at the top while the DOM keeps causal order. That matters because ids, selection and the `/node` lookup all key off the DOM — and because the class lives on the container, the choice survives every SSE frame for free. Steps inside a unit are never reversed; a tool result after its call is not a preference.
 - `clientScript(live)`: the export omits the event-stream block entirely (`LIVE = false`) and reads details from inlined attributes
 
 ## Static previews

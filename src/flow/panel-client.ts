@@ -31,6 +31,7 @@ export function clientScript(live: boolean): string {
   const failedToggle = document.getElementById("filter-failed");
   const followToggle = document.getElementById("follow-toggle");
   const filterEmpty = document.getElementById("filter-empty");
+  const orderToggle = document.getElementById("order-toggle");
   const collapseAll = document.getElementById("collapse-all");
   const expandAll = document.getElementById("expand-all");
   if (!flow || !details || !layout || !detailsToggle) return;
@@ -215,6 +216,14 @@ ${live ? LIVE_BLOCK : ""}
     const hidden = layout.classList.toggle("details-hidden");
     detailsToggle.textContent = hidden ? "Show details" : "Hide details";
   });
+  // Units read oldest-first by default, the order they happened in. On a long
+  // session the newest work is the reason the panel is open, so it can be
+  // flipped to the top instead.
+  const applyOrder = () => {
+    const newestFirst = orderToggle && orderToggle.getAttribute("aria-pressed") === "true";
+    flow.classList.toggle("newest-first", Boolean(newestFirst));
+    if (orderToggle) orderToggle.textContent = newestFirst ? "Oldest first" : "Newest first";
+  };
   if (search) search.addEventListener("input", applyFilter);
   const pressToggle = (button, after) => {
     if (!button) return;
@@ -226,6 +235,7 @@ ${live ? LIVE_BLOCK : ""}
   };
   pressToggle(failedToggle, applyFilter);
   pressToggle(followToggle, applyFollow);
+  pressToggle(orderToggle, applyOrder);
   if (collapseAll) collapseAll.addEventListener("click", () => setAllCollapsed(true));
   if (expandAll) expandAll.addEventListener("click", () => setAllCollapsed(false));
 })();

@@ -91,7 +91,10 @@ h1 { font-size: 1.25rem; }
 /* While filtering, a collapsed ancestor must not hide a match beneath it. */
 .filtering .step.collapsed > .steps--nested { display: block; }
 .layout { display: flex; gap: 1rem; align-items: flex-start; }
-.flow { flex: 3; min-width: 0; }
+.flow { flex: 3; min-width: 0; display: flex; flex-direction: column; }
+/* Newest-first is a display flip only: units keep their order in the DOM, so
+   the choice survives an innerHTML replacement and never reorders steps. */
+.flow.newest-first { flex-direction: column-reverse; }
 .details {
   flex: 2;
   min-width: 0;
