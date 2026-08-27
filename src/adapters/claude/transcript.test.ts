@@ -284,7 +284,7 @@ describe("reduceTranscript sub-agents", () => {
 })
 
 describe("reduceTranscript orchestration", () => {
-  // Every shape below is copied from real records found across 59 transcripts.
+  // Every shape below is copied from real records found on disk, not invented.
   const system = (subtype: string, extra: Record<string, unknown>): string =>
     JSON.stringify({ type: "system", subtype, uuid: `sys-${subtype}`, timestamp: T(10), ...extra })
 
@@ -361,8 +361,8 @@ describe("reduceTranscript orchestration", () => {
   })
 
   it("ignores hook summaries, which carry no signal", () => {
-    // 1918 of these across every transcript checked: hookErrors always empty,
-    // preventedContinuation never set. Rendering them is pure clutter.
+    // ~1900 of these across every transcript surveyed, with hookErrors always
+    // empty and preventedContinuation never set. Rendering them is pure clutter.
     const tree = withSystem(
       system("stop_hook_summary", {
         hookCount: 2,

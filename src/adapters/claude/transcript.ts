@@ -207,9 +207,9 @@ function str(value: unknown): string {
  * zero were empty. Claude Code records its bookkeeping as `system` records
  * instead, and only a few of those carry any signal.
  *
- * Deliberately excluded: `stop_hook_summary`. Across all 58 transcripts
- * checked there were 1918 of them, every one with an empty `hookErrors`, no
- * `stopReason` and `preventedContinuation` never set — roughly 24 identical
+ * Deliberately excluded: `stop_hook_summary`. A survey of every transcript on
+ * the development machine found ~1900 of them and not one with a `hookError`,
+ * a `stopReason`, or `preventedContinuation` set — roughly two dozen identical
  * dimmed nodes per session, which is the clutter the node type exists to
  * avoid. Also excluded: `attachment`, `last-prompt`, `ai-title`,
  * `custom-title`, `mode`, `queue-operation`, `pr-link`, `atis-latch`,
