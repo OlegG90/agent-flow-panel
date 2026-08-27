@@ -24,6 +24,15 @@ export interface TranscriptRecord {
     usage?: Record<string, unknown>
   }
   toolUseResult?: unknown
+  subtype?: string
+  content?: unknown
+  error?: unknown
+  retryAttempt?: number
+  maxRetries?: number
+  compactMetadata?: Record<string, unknown>
+  originalModel?: string
+  fallbackModel?: string
+  apiRefusalCategory?: string
 }
 
 interface ContentBlock {
@@ -182,6 +191,99 @@ function applyAgentSummary(node: StepNode, result: unknown): void {
   }
 }
 
+const COMPACT_MAX_CHARS = 400
+
+function compactNumber(value: number): string {
+  return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value)
+}
+
+function str(value: unknown): string {
+  return typeof value === "string" ? value : ""
+}
+
+/**
+ * Orchestration on Claude Code means something different than on Pi.
+ *
+ * Pi's rule — a turn that produced no text, no reasoning and no tool calls —
+ * never fires here: of 458 turns in the transcript this was verified against,
+ * zero were empty. Claude Code records its bookkeeping as `system` records
+ * instead, and only a few of those carry any signal.
+ *
+ * Deliberately excluded: `stop_hook_summary`. Across all 58 transcripts
+ * checked there were 1918 of them, every one with an empty `hookErrors`, no
+ * `stopReason` and `preventedContinuation` never set — roughly 24 identical
+ * dimmed nodes per session, which is the clutter the node type exists to
+ * avoid. Also excluded: `attachment`, `last-prompt`, `ai-title`,
+ * `custom-title`, `mode`, `queue-operation`, `pr-link`, `atis-latch`,
+ * `bridge-session` — UI and persistence bookkeeping, not agent work.
+ */
+function systemNodeOf(record: TranscriptRecord, at: number | undefined): StepNode | undefined {
+  const id = `sys-${record.uuid ?? String(at ?? "")}`
+  switch (record.subtype) {
+    case "compact_boundary": {
+      const meta = record.compactMetadata ?? {}
+      const pre = typeof meta["preTokens"] === "number" ? meta["preTokens"] : undefined
+      const post = typeof meta["postTokens"] === "number" ? meta["postTokens"] : undefined
+      const trigger = str(meta["trigger"])
+      const node = makeNode(
+        id,
+        "orchestration",
+        trigger ? `Context compacted (${trigger})` : "Context compacted",
+        "completed",
+        pre !== undefined && post !== undefined
+          ? `${compactNumber(pre)} → ${compactNumber(post)} tokens`
+          : str(record.content),
+      )
+      const duration = meta["durationMs"]
+      if (typeof duration === "number" && at !== undefined) {
+        node.startedAt = at - duration
+        node.endedAt = at
+      }
+      return node
+    }
+    case "api_error": {
+      const error = (record.error ?? {}) as Record<string, unknown>
+      const status = typeof error["status"] === "number" ? error["status"] : undefined
+      const attempt =
+        record.retryAttempt !== undefined && record.maxRetries !== undefined
+          ? `retry ${record.retryAttempt}/${record.maxRetries}`
+          : ""
+      // Transport failures carry no status but do carry a readable summary;
+      // most api_error records in practice are of that kind.
+      const detail = str(error["formatted"]) || str(error["message"]) || str(error["type"])
+      return makeNode(
+        id,
+        "orchestration",
+        status !== undefined ? `API error ${status}` : "API error",
+        // A retried request is why a step stalled, so it reads as a failure.
+        "failed",
+        [detail, attempt].filter(Boolean).join(" · "),
+      )
+    }
+    case "model_refusal_fallback": {
+      const from = record.originalModel ?? ""
+      const to = record.fallbackModel ?? ""
+      return makeNode(
+        id,
+        "orchestration",
+        from && to ? `Model fallback: ${from} → ${to}` : "Model fallback",
+        "failed",
+        [record.apiRefusalCategory, str(record.content)].filter(Boolean).join(" · ").slice(0, COMPACT_MAX_CHARS),
+      )
+    }
+    case "local_command":
+      return makeNode(
+        id,
+        "orchestration",
+        "Local command",
+        "completed",
+        str(record.content).replace(/<\/?local-command-[a-z]+>/g, "").trim().slice(0, COMPACT_MAX_CHARS),
+      )
+    default:
+      return undefined
+  }
+}
+
 interface Turn {
   call: StepNode
   reply: StepNode
@@ -246,6 +348,14 @@ export function reduceTranscript(lines: readonly string[], sessionID = ""): Flow
     const startedBefore = previousAt
     if (at !== undefined && (record.type === "user" || record.type === "assistant")) {
       previousAt = at
+    }
+
+    if (record.type === "system") {
+      const node = systemNodeOf(record, at)
+      if (node && main) {
+        main.unit.steps.push(node)
+      }
+      continue
     }
 
     if (isHumanPrompt(record)) {

@@ -41,6 +41,10 @@ Two things follow from reading a file rather than a stream:
   working directory is, the panel will show it — including yesterday's.
 - **Updates are per message, not per token.** A transcript line is written when a
   message completes, so steps appear as they finish.
+- **Harness events show up as dimmed `Orchestration` nodes** — context
+  compaction (with before/after token counts), API errors and their retries,
+  model fallbacks. Hook summaries are deliberately not shown: they carry no
+  outcome and would add a couple of dozen identical nodes per session.
 - **Sub-agents show as one node, not a branch.** Claude Code does not record a
   sub-agent's own steps, so the panel shows its brief, its report and its run
   summary (model, duration, tokens, tool count) rather than an expandable tree.

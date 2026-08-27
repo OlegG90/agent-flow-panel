@@ -274,3 +274,111 @@ describe("reduceTranscript sub-agents", () => {
     assert.ok(!launch.children.some((c) => c.type === "tool-result"))
   })
 })
+
+describe("reduceTranscript orchestration", () => {
+  // Every shape below is copied from real records found across 59 transcripts.
+  const system = (subtype: string, extra: Record<string, unknown>): string =>
+    JSON.stringify({ type: "system", subtype, uuid: `sys-${subtype}`, timestamp: T(10), ...extra })
+
+  const withSystem = (line: string): ReturnType<typeof reduceTranscript> =>
+    reduceTranscript([prompt("u1", "go", T(0)), line])
+
+  it("shows a context compaction with its before/after token counts", () => {
+    const tree = withSystem(
+      system("compact_boundary", {
+        content: "Conversation compacted",
+        compactMetadata: { trigger: "auto", preTokens: 168294, postTokens: 10719, durationMs: 102273 },
+      }),
+    )
+    const node = tree.units[0]!.steps.find((s) => s.type === "orchestration")!
+    assert.equal(node.label, "Context compacted (auto)")
+    assert.equal(node.content, "168.3k → 10.7k tokens")
+    assert.equal(node.endedAt! - node.startedAt!, 102273)
+  })
+
+  it("shows an API error with its status and retry count", () => {
+    const tree = withSystem(
+      system("api_error", {
+        error: { status: 500, type: "api_error", requestID: "req_x" },
+        retryAttempt: 1,
+        maxRetries: 10,
+      }),
+    )
+    const node = tree.units[0]!.steps.find((s) => s.type === "orchestration")!
+    assert.equal(node.label, "API error 500")
+    assert.equal(node.state, "failed")
+    assert.match(node.content, /retry 1\/10/)
+  })
+
+  it("falls back to the readable summary when a transport error has no status", () => {
+    // 46 of the api_error records observed were connection failures like this.
+    const tree = withSystem(
+      system("api_error", {
+        error: {
+          message: "Connection error.",
+          formatted: "Unable to connect to API (ECONNRESET)",
+          connection: { code: "ECONNRESET" },
+        },
+        retryAttempt: 1,
+        maxRetries: 10,
+      }),
+    )
+    const node = tree.units[0]!.steps.find((s) => s.type === "orchestration")!
+    assert.equal(node.label, "API error")
+    assert.match(node.content, /Unable to connect to API \(ECONNRESET\)/)
+  })
+
+  it("shows a model fallback with both models", () => {
+    const tree = withSystem(
+      system("model_refusal_fallback", {
+        originalModel: "claude-opus-5",
+        fallbackModel: "claude-opus-4-8",
+        apiRefusalCategory: "cyber",
+        content: "safeguards flagged this message",
+      }),
+    )
+    const node = tree.units[0]!.steps.find((s) => s.type === "orchestration")!
+    assert.equal(node.label, "Model fallback: claude-opus-5 → claude-opus-4-8")
+    assert.equal(node.state, "failed")
+    assert.match(node.content, /cyber/)
+  })
+
+  it("strips the wrapper tags from a local command", () => {
+    const tree = withSystem(
+      system("local_command", { content: "<local-command-stdout>ok</local-command-stdout>" }),
+    )
+    const node = tree.units[0]!.steps.find((s) => s.type === "orchestration")!
+    assert.equal(node.label, "Local command")
+    assert.equal(node.content, "ok")
+  })
+
+  it("ignores hook summaries, which carry no signal", () => {
+    // 1918 of these across every transcript checked: hookErrors always empty,
+    // preventedContinuation never set. Rendering them is pure clutter.
+    const tree = withSystem(
+      system("stop_hook_summary", {
+        hookCount: 2,
+        hookInfos: [{ command: "callback" }, { command: "callback" }],
+        hookErrors: [],
+        preventedContinuation: false,
+      }),
+    )
+    assert.equal(tree.units[0]!.steps.filter((s) => s.type === "orchestration").length, 0)
+  })
+
+  it("ignores UI and persistence bookkeeping", () => {
+    const tree = reduceTranscript([
+      prompt("u1", "go", T(0)),
+      JSON.stringify({ type: "ai-title", aiTitle: "x" }),
+      JSON.stringify({ type: "queue-operation", operation: "enqueue", content: "go" }),
+      JSON.stringify({ type: "mode", mode: "normal" }),
+      JSON.stringify({ type: "attachment", attachment: {} }),
+    ])
+    assert.equal(tree.units[0]!.steps.length, 0)
+  })
+
+  it("drops a system record that arrives before any request", () => {
+    const tree = reduceTranscript([system("compact_boundary", { compactMetadata: {} })])
+    assert.equal(tree.units.length, 0)
+  })
+})

@@ -45,6 +45,19 @@ Claude Code exposes no plugin event API, so this adapter is **pull, not push**: 
 - `session-source.ts` — `encodeProjectDir` (every char outside `[a-zA-Z0-9-]` → `-`, verified against every project directory on disk), newest-transcript discovery, and an `fs.watch` that re-resolves when a new session file appears. Re-reduces the whole file (~17ms on 2.8MB) rather than tailing.
 - `mcp-server.ts` — `McpServer` over stdio registering `flow_open`/`flow_panel`/`flow_tree`.
 
+**Orchestration nodes are selective.** Pi's rule — an empty turn — never fires here: of 458 turns in the transcript this was built against, zero produced no text, reasoning or tools. Claude Code records its harness work as `system` records instead, and only four subtypes carry signal:
+
+| Subtype | Node | Fields used |
+|---|---|---|
+| `compact_boundary` | `Context compacted (auto / manual)` | `compactMetadata.preTokens` → `postTokens`, `durationMs` becomes the node's duration |
+| `api_error` | `API error <status>`, state `failed` | `error.status`, or `error.formatted`/`message` for transport failures that carry no status, plus `retryAttempt`/`maxRetries` |
+| `model_refusal_fallback` | `Model fallback: <from> → <to>`, state `failed` | `originalModel`, `fallbackModel`, `apiRefusalCategory` |
+| `local_command` | `Local command` | `content`, with the `<local-command-*>` wrapper stripped |
+
+Everything else is dropped on purpose. `stop_hook_summary` is the notable exclusion: 1918 of them across the 59 transcripts surveyed, every one with an empty `hookErrors`, no `stopReason`, and `preventedContinuation` never set — about 24 identical dimmed nodes per session, which is exactly the clutter the node type exists to prevent. `attachment`, `last-prompt`, `ai-title`, `custom-title`, `mode`, `queue-operation`, `pr-link`, `atis-latch` and `bridge-session` are UI and persistence bookkeeping rather than agent work. A `system` record that arrives before the first prompt has no unit to attach to and is dropped.
+
+Verified across all 59 transcripts on disk: 106 orchestration nodes produced, covering all four subtypes.
+
 **Sub-agent internals are not in the transcript.** Verified by running one: the file gains the `Agent` launch and its result, and nothing in between — no `isSidechain` records are written. The launch node therefore shows the brief, the returned report, and the run summary the result carries (`agentType`, `resolvedModel`, `totalDurationMs`, `usage`, `totalToolUseCount`). The tool is named `Agent` in Claude Code 2.x; `Task` is still matched for older transcripts.
 
 ### Pi / omp (`adapters/pi/`)

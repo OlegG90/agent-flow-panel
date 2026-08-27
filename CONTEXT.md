@@ -39,8 +39,11 @@ The internal work of a sub-agent, revealed as a nested flow of Units of Work ben
 A single node that collapses several Subtasks into one, shown when more sub-agents run than are expanded individually.
 
 **Orchestration**:
-A turn that produced no model text/reasoning and no tool calls — oh-my-pi bookkeeping (worktree setup, queue poll) — kept as a dimmed node to preserve the full trace.
+Work the agent's harness did around the model, kept as a dimmed node so the trace stays complete. What counts as orchestration is platform-specific:
+- **oh-my-pi**: a turn that produced no model text/reasoning and no tool calls — worktree setup, queue poll.
+- **Claude Code**: a `system` record that changed the run — context compaction, an API error and its retry, a model fallback, a local command.
 _Avoid_: hiding it as if nothing happened
+_Avoid_: showing every harness record — bookkeeping with no outcome is clutter, not trace
 
 **Unit of Work**:
 One human request together with the full tree of steps the agent performs to satisfy it.
