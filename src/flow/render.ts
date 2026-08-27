@@ -56,17 +56,41 @@ export function formatCost(cost: number): string {
 }
 
 /** The badges that answer "how long did this take and what did it cost". */
-function metrics(node: StepNode): string[] {
-  const out: string[] = []
+/**
+ * Spells out a token badge, because the compact form is not self-evident:
+ * `input` counts only tokens the model had to read fresh — anything served
+ * from the prompt cache is reported separately, so a call can legitimately
+ * show 2 input tokens beside 41k cached.
+ */
+export function explainTokens(tokens: TokenUsage): string {
+  const total = tokens.input + tokens.cacheRead + tokens.cacheWrite
+  const parts = [
+    `${tokens.input.toLocaleString("en-US")} new input tokens`,
+    tokens.cacheRead > 0 ? `${tokens.cacheRead.toLocaleString("en-US")} read from cache` : "",
+    tokens.cacheWrite > 0 ? `${tokens.cacheWrite.toLocaleString("en-US")} written to cache` : "",
+    `${tokens.output.toLocaleString("en-US")} generated`,
+    tokens.reasoning > 0 ? `of which ${tokens.reasoning.toLocaleString("en-US")} reasoning` : "",
+  ].filter(Boolean)
+  return `${parts.join(" · ")} — ${total.toLocaleString("en-US")} tokens went in altogether`
+}
+
+interface Metric {
+  text: string
+  /** Shown on hover where the compact form needs unpacking. */
+  title?: string
+}
+
+function metrics(node: StepNode): Metric[] {
+  const out: Metric[] = []
   const elapsed = duration(node)
   if (elapsed) {
-    out.push(elapsed)
+    out.push({ text: elapsed, title: "wall clock for this step" })
   }
   if (node.tokens) {
-    out.push(formatTokens(node.tokens))
+    out.push({ text: formatTokens(node.tokens), title: explainTokens(node.tokens) })
   }
   if (node.cost !== undefined && node.cost > 0) {
-    out.push(formatCost(node.cost))
+    out.push({ text: formatCost(node.cost), title: "cost as billed by the provider" })
   }
   return out
 }
@@ -186,7 +210,7 @@ function walk(node: StepNode, depth: number, leaf: (ctx: WalkContext) => string)
 function textLeaf({ node, inner, depth }: WalkContext): string {
   const pad = "  ".repeat(depth)
   const content = node.content.length > 0 ? `: ${truncate(node.content)}` : ""
-  const meta = metrics(node)
+  const meta = metrics(node).map((m) => m.text)
   const suffix = meta.length > 0 ? ` (${meta.join(", ")})` : ""
   const lines = [`${pad}[${STATE_LABEL[node.state]}] ${truncate(node.label, 120)}${suffix}${content}`]
   if (node.reasoning) {
@@ -224,7 +248,10 @@ function makeHtmlLeaf(inlineContent: boolean): (ctx: WalkContext) => string {
     `<span class="step-label">${escapeHtml(truncate(node.label, 120))}</span>`,
     badge,
     `<span class="step-state">${STATE_LABEL[node.state]}</span>`,
-    ...metrics(node).map((value) => `<span class="step-metric">${escapeHtml(value)}</span>`),
+    ...metrics(node).map(
+      (m) =>
+        `<span class="step-metric"${m.title ? ` title="${attrEscape(m.title)}"` : ""}>${escapeHtml(m.text)}</span>`,
+    ),
   ]
   if (node.content.length > 0) {
     parts.push(`<span class="step-content">${escapeHtml(truncate(node.content, 120))}</span>`)

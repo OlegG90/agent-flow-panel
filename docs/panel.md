@@ -20,7 +20,16 @@ Opened via `execFile("cmd /c start")` / `open` / `xdg-open` from `openInBrowser`
 `src/flow/render.ts` (tree rendering and page assembly; the stylesheet lives in `panel-styles.ts` and the browser half in `panel-client.ts`):
 - `collapseTurn` merges each `ModelCall` with its single `ModelReply` before walking (display only — the domain keeps both; the `ModelCall` id is preserved so collapse/selection survive)
 - `walk(node, leaf)` recursively, `textLeaf` (for `flow_tree`) and `htmlLeaf` (for panel)
-- `metrics(node)` → duration / `1.2k→380 tok (900 cached)` / `$0.0042` badges; `unitSummary` totals them per unit in the heading. Nodes without reported metrics render unchanged.
+- `metrics(node)` → duration / `1.2k→380 tok (900 cached)` / `$0.0042` badges, each with a `title` explaining it on hover; `unitSummary` totals them per unit in the heading. Nodes without reported metrics render unchanged.
+
+**Reading a token badge.** `2→816 tok (44.6k cached)` is *not* "2 tokens in". Providers
+report `input` as the tokens the model had to read fresh, counting anything served from
+the prompt cache separately — so that call actually took ~44.6k tokens of context and
+generated 816. The hover text spells the whole split out, cache writes included.
+
+**Cost is usually absent.** Only OpenCode reports a cost field, and on subscription
+plans and gateways it reports `0`, so the badge is skipped. Claude Code reports token
+usage but never money; Pi reports neither.
 - `truncate` 80 (text) / 120 (html), `escapeHtml`/`attrEscape` (XSS, `&#10;` for SSE)
 - `data-id`/`data-type`/`data-state` on `<li>`, plus `data-detail="1"` when the node has content worth fetching. Full content is **not** in the frame — the details pane fetches `/node`. The static export inlines `data-content`/`data-reasoning` instead, since a saved page has no server.
 - `Plan` chips above `steps`: `pending` grey, `in-progress` yellow, `completed` green. Plan items still to be started are also previewed inline as dashed `planned` nodes at the tail of the unit — completed and in-progress ones are not, their work is already visible as real steps.

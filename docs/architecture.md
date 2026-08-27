@@ -34,7 +34,7 @@ The dependency arrow points one way: `flow/` never imports an adapter. Adapter t
 - `Unit` opens on the first `text` with `role=user` (ignores synthetic), closes on `session.idle` or the next `UserRequest`.
 - `TurnState{modelCall→modelReply}` on `step-start`/`step-finish`, `reasoning`/`text` via `delta`.
 - `tool` part `pending→running→completed/failed`, `tool==="task"` + `subtask` part merge into a single `subtask:true` node (queues `turnUnmatched`/`turnTaskCalls` for ordering). `ToolState.time` → `startedAt`/`endedAt`; `ToolState.title` is promoted into the label (`Tool: bash · npm test`) unless it repeats the tool name.
-- `AssistantMessage.time`/`tokens`/`cost` → metrics on the turn's `model-call`.
+- `AssistantMessage.time`/`tokens`/`cost` → metrics on the turn's `model-call`. `cost` is read but is `0` on plans that do not bill per message, and the badge is skipped when it is — so in practice the panel often shows no cost at all.
 - `Plan` from `todo.updated` (buffer `pendingTodos`).
 
 `SessionTracker extends BaseSessionTracker<FlowStore>` — adds only `dispatch(event)`: `session.created{parentID}` → `registerChild`, everything else routed by `sessionIDOf`. Composition (sort by `created`, tie-break on `id`, recursive flat graft of `request+steps`, `subtask-summary` beyond the third) lives in the shared base.

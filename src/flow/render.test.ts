@@ -519,10 +519,24 @@ describe("metrics", () => {
 
   it("renders duration, tokens and cost badges on the node", () => {
     const html = renderFlowHtml(metered)
-    assert.ok(html.includes('<span class="step-metric">4.2s</span>'))
-    assert.ok(html.includes('<span class="step-metric">1.2k→380 tok (900 cached)</span>'))
-    assert.ok(html.includes('<span class="step-metric">$0.0042</span>'))
-    assert.ok(html.includes('<span class="step-metric">2.1s</span>'))
+    assert.ok(html.includes(">4.2s</span>"))
+    assert.ok(html.includes(">1.2k→380 tok (900 cached)</span>"))
+    assert.ok(html.includes(">$0.0042</span>"))
+    assert.ok(html.includes(">2.1s</span>"))
+  })
+
+  it("explains the token badge on hover, since the compact form is not obvious", () => {
+    // `input` counts only uncached tokens, so a call can read 1.2k fresh
+    // beside 900 served from cache — the badge alone does not say that.
+    const html = renderFlowHtml(metered)
+    assert.match(html, /title="[^"]*1,200 new input tokens[^"]*900 read from cache/)
+    assert.match(html, /title="[^"]*2,100 tokens went in altogether/)
+  })
+
+  it("labels the duration and cost badges too", () => {
+    const html = renderFlowHtml(metered)
+    assert.ok(html.includes('title="wall clock for this step"'))
+    assert.ok(html.includes('title="cost as billed by the provider"'))
   })
 
   it("totals the unit in its heading", () => {
