@@ -173,6 +173,27 @@ describe("panel server", () => {
     assert.ok(html.includes('data-content="Hello"'), "content is inlined so details still work")
   })
 
+  it("names its agent in the tab and the header", async (t) => {
+    // Several panels can be open at once — one per agent — and identical
+    // pages are how one gets mistaken for another's.
+    const panel = createPanelServer({ getTree: () => tree, source: "Claude Code" })
+    await panel.start()
+    t.after(() => panel.close())
+
+    const html = await (await fetch(panel.url())).text()
+    assert.match(html, /<title>Claude Code — Agent Flow<\/title>/)
+    assert.match(html, /class="page-source">Claude Code · s1</)
+  })
+
+  it("falls back to the version when no agent is named", async (t) => {
+    const panel = createPanelServer({ getTree: () => ({ sessionID: "", units: [] }) })
+    await panel.start()
+    t.after(() => panel.close())
+
+    const html = await (await fetch(panel.url())).text()
+    assert.match(html, /<title>Agent Flow Panel<\/title>/)
+  })
+
   it("returns 404 for unknown routes", async (t) => {
     const panel = createPanelServer({ getTree: () => tree })
     await panel.start()

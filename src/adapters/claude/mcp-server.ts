@@ -20,7 +20,7 @@ export function createFlowMcpServer(options: DiscoveryOptions = {}): {
   close: () => Promise<void>
 } {
   const source = createTranscriptSource(options)
-  const panel = createPanelServer({ getTree: () => source.tree() })
+  const panel = createPanelServer({ getTree: () => source.tree(), source: "Claude Code" })
   source.onChange(() => panel.publish())
 
   const server = new McpServer({ name: "flow-panel", version: VERSION })

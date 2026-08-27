@@ -10,7 +10,7 @@ import { VERSION } from "./version.ts"
 // loading this plugin must not share a tracker or an HTTP port.
 const server: Plugin = async () => {
   const tracker = new SessionTracker()
-  const panelServer = createPanelServer({ getTree: () => tracker.tree() })
+  const panelServer = createPanelServer({ getTree: () => tracker.tree(), source: "OpenCode" })
   tracker.onUpdate(() => panelServer.publish())
 
   async function openPanelInBrowser(context: { sessionID: string }): Promise<string> {

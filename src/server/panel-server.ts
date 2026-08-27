@@ -32,6 +32,8 @@ export const DEFAULT_COALESCE_MS = 120
 
 export interface PanelServerDeps {
   getTree: () => FlowTree
+  /** Which agent this panel belongs to, shown in the tab and the header. */
+  source?: string
   /** Minimum gap between rendered frames. 0 disables coalescing. */
   coalesceMs?: number
 }
@@ -60,7 +62,7 @@ export function createPanelServer(deps: PanelServerDeps): PanelServer {
     }
     if (url.pathname === "/") {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
-      res.end(renderPanelHtml(deps.getTree()))
+      res.end(renderPanelHtml(deps.getTree(), { source: deps.source }))
       return
     }
     if (url.pathname === "/data") {
@@ -73,7 +75,7 @@ export function createPanelServer(deps: PanelServerDeps): PanelServer {
         "content-type": "text/html; charset=utf-8",
         "content-disposition": 'attachment; filename="agent-flow.html"',
       })
-      res.end(renderExportHtml(deps.getTree()))
+      res.end(renderExportHtml(deps.getTree(), { source: deps.source }))
       return
     }
     if (url.pathname === NODE_PATH) {

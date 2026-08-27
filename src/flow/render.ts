@@ -417,18 +417,30 @@ export function renderFlowHtml(tree: FlowTree, leaf = htmlLeaf): string {
   return units + empty
 }
 
-function renderPage(tree: FlowTree, live: boolean): string {
+/**
+ * Which agent this panel belongs to. Several can run at once — a Claude Code
+ * MCP server, an OpenCode plugin and an omp extension each open their own port
+ * — and without this every page looked identical, which is exactly how a panel
+ * gets mistaken for another agent's.
+ */
+export interface PageOptions {
+  source?: string
+}
+
+function renderPage(tree: FlowTree, live: boolean, options: PageOptions = {}): string {
   return [
     "<!doctype html>",
     '<html lang="en">',
     "<head>",
     '<meta charset="utf-8" />',
-    `<title>Agent Flow Panel v${VERSION}</title>`,
+    `<title>${escapeHtml(options.source ? `${options.source} — Agent Flow` : "Agent Flow Panel")}</title>`,
     `<style>${STYLES}</style>`,
     "</head>",
     "<body>",
     '<header class="topbar">',
-    `<h1>Agent Flow Panel <span style="font-size:0.7em;font-weight:400;color:var(--muted)">v${VERSION}</span></h1>`,
+    `<h1>Agent Flow Panel <span class="page-source">${escapeHtml(
+      [options.source, tree.sessionID].filter(Boolean).join(" · ") || `v${VERSION}`,
+    )}</span></h1>`,
     '<div class="toolbar">',
     '<input id="filter-search" class="toolbar-search" type="search" placeholder="Filter steps…" aria-label="Filter steps" />',
     '<button id="filter-failed" class="toolbar-toggle" type="button" aria-pressed="false">Failed only</button>',
@@ -454,11 +466,11 @@ function renderPage(tree: FlowTree, live: boolean): string {
   ].join("")
 }
 
-export function renderPanelHtml(tree: FlowTree): string {
-  return renderPage(tree, true)
+export function renderPanelHtml(tree: FlowTree, options: PageOptions = {}): string {
+  return renderPage(tree, true, options)
 }
 
 /** A standalone snapshot that keeps working after the server is gone. */
-export function renderExportHtml(tree: FlowTree): string {
-  return renderPage(tree, false)
+export function renderExportHtml(tree: FlowTree, options: PageOptions = {}): string {
+  return renderPage(tree, false, options)
 }

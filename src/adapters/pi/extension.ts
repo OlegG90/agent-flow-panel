@@ -39,6 +39,7 @@ export default function piExtension(pi: ExtensionAPI): void {
   const tracker = new PiSessionTracker()
   const panelServer = createPanelServer({
     getTree: () => tracker.tree(),
+    source: "Pi / omp",
   })
   tracker.onUpdate(() => panelServer.publish())
 

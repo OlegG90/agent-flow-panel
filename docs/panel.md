@@ -6,7 +6,7 @@ Live flowchart of the session in the browser: step tree on the left (60%), selec
 
 `src/server/panel-server.ts`:
 - Every route requires the per-run access token: `?t=<token>`; without it → `401`. `url(path?)` builds a tokenized URL (`url()` → `/?t=…`, `url("data")` → `/data?t=…`).
-- `GET /` → `renderPanelHtml(getTree())` (full HTML with the stylesheet and client script inlined)
+- `GET /` → `renderPanelHtml(getTree(), { source })` (full HTML with the stylesheet and client script inlined). `source` is the agent's name — the page titles itself `OpenCode — Agent Flow`, `Claude Code — Agent Flow`, `Pi / omp — Agent Flow`, and the header adds the session id. Several agents can each run a panel at once, and identical pages are how one gets mistaken for another's.
 - `GET /data` → `JSON FlowTree`
 - `GET /node?id=<id>` → one step's full `content`/`reasoning` (looked up on the collapsed tree, so it agrees with what was rendered); `404` for an unknown id
 - `GET /export` → the standalone snapshot as `attachment; filename="agent-flow.html"`

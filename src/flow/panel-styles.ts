@@ -76,6 +76,7 @@ h1 { font-size: 1.25rem; }
 .plan-item[data-state="in-progress"] { color: var(--tool-call); border-color: var(--tool-call); }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .topbar h1 { margin: 0; }
+.page-source { font-size: 0.7em; font-weight: 400; color: var(--muted); font-family: ui-monospace, monospace; }
 #details-toggle { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.8rem; }
 #details-toggle:hover { border-color: var(--selected); color: var(--selected); }
 .toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
