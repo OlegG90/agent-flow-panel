@@ -433,6 +433,8 @@ h1 { font-size: 1.25rem; }
 .toolbar-button:hover, .toolbar-toggle:hover { border-color: var(--selected); color: var(--selected); }
 .toolbar-toggle[aria-pressed="true"] { border-color: var(--selected); color: var(--selected); background: rgba(34, 211, 238, 0.12); }
 .step--hidden { display: none; }
+.unit--hidden { display: none; }
+.filter-empty { color: var(--muted); padding: 1rem; border: 1px dashed var(--border); border-radius: 10px; }
 .step--hit > .step-label { text-decoration: underline; text-decoration-color: var(--selected); text-underline-offset: 3px; }
 /* While filtering, a collapsed ancestor must not hide a match beneath it. */
 .filtering .step.collapsed > .steps--nested { display: block; }
@@ -502,6 +504,7 @@ function clientScript(live: boolean): string {
   const search = document.getElementById("filter-search");
   const failedToggle = document.getElementById("filter-failed");
   const followToggle = document.getElementById("follow-toggle");
+  const filterEmpty = document.getElementById("filter-empty");
   const collapseAll = document.getElementById("collapse-all");
   const expandAll = document.getElementById("expand-all");
   if (!flow || !details || !layout || !detailsToggle) return;
@@ -612,13 +615,23 @@ function clientScript(live: boolean): string {
     const query = search ? search.value.trim().toLowerCase() : "";
     const failedOnly = failedToggle && failedToggle.getAttribute("aria-pressed") === "true";
     const steps = flow.querySelectorAll(".step");
+    const units = flow.querySelectorAll(".unit");
     for (const step of steps) step.classList.remove("step--hidden", "step--hit");
-    flow.classList.toggle("filtering", Boolean(query) || Boolean(failedOnly));
-    if (!query && !failedOnly) return;
+    for (const unit of units) unit.classList.remove("unit--hidden");
+    const active = Boolean(query) || Boolean(failedOnly);
+    flow.classList.toggle("filtering", active);
+    if (filterEmpty) filterEmpty.hidden = true;
+    if (!active) return;
     for (const step of steps) {
       const label = step.querySelector(":scope > .step-label");
       const preview = step.querySelector(":scope > .step-content");
-      const hay = ((label ? label.textContent : "") + " " + (preview ? preview.textContent : "")).toLowerCase();
+      // The node type is searchable too, so "orchestration" or "answer" finds
+      // those steps even though the word never appears in their label.
+      const hay = (
+        (label ? label.textContent : "") + " " +
+        (preview ? preview.textContent : "") + " " +
+        (step.getAttribute("data-type") || "")
+      ).toLowerCase();
       const textOk = !query || hay.indexOf(query) !== -1;
       const stateOk = !failedOnly || step.getAttribute("data-state") === "failed";
       if (textOk && stateOk) step.classList.add("step--hit");
@@ -629,6 +642,15 @@ function clientScript(live: boolean): string {
         step.classList.add("step--hidden");
       }
     }
+    // A unit whose every step is hidden would otherwise render as an empty
+    // heading, so a filter with few matches left a wall of blank boxes.
+    let matched = 0;
+    for (const unit of units) {
+      const hit = unit.querySelector(".step--hit");
+      unit.classList.toggle("unit--hidden", !hit);
+      if (hit) matched += 1;
+    }
+    if (filterEmpty) filterEmpty.hidden = matched > 0;
   };
   const applyFollow = () => {
     if (!followToggle || followToggle.getAttribute("aria-pressed") !== "true") return;
@@ -712,6 +734,7 @@ function renderPage(tree: FlowTree, live: boolean): string {
     "</div>",
     "</header>",
     '<main class="layout" id="layout">',
+    `<p class="filter-empty" id="filter-empty" hidden>Nothing matches this filter.</p>`,
     `<div class="flow" id="${FLOW_CONTAINER_ID}">${renderFlowHtml(
       tree,
       live ? htmlLeaf : staticHtmlLeaf,

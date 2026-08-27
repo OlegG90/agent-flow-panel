@@ -338,6 +338,23 @@ describe("navigation toolbar", () => {
     assert.ok(html.includes("applyFollow();"))
   })
 
+  it("hides units with no match instead of leaving empty boxes", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes(".unit--hidden { display: none; }"))
+    assert.ok(html.includes('unit.classList.toggle("unit--hidden", !hit)'))
+  })
+
+  it("offers an empty state when nothing matches", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes('id="filter-empty"'))
+    assert.ok(html.includes("Nothing matches this filter."))
+  })
+
+  it("searches the node type as well as the label and preview", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes('step.getAttribute("data-type")'))
+  })
+
   it("keeps matches visible under a collapsed ancestor while filtering", () => {
     const html = renderPanelHtml(tree)
     assert.ok(html.includes(".filtering .step.collapsed > .steps--nested { display: block; }"))
