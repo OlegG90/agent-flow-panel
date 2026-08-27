@@ -35,6 +35,16 @@ The server provides the same `flow_open` / `flow_panel` / `flow_tree` tools as t
 other adapters. This repository ships `/flow` and `/flow-tree` commands under
 `.claude/commands/`, which call them.
 
+> **Registering at user scope makes this server visible to other agents.**
+> oh-my-pi reads Claude Code's user config, so a `flow-panel` entry in
+> `~/.claude.json` gets loaded by omp too — and since this server reads
+> `~/.claude/projects`, calling `flow_open` from omp opens a **Claude Code**
+> panel, not omp's. Nothing is broken; it is simply the wrong agent's flow.
+> The panel says which agent it belongs to in its title bar, and the tool
+> descriptions say it up front. If you run omp as well, prefer registering
+> this server per project (`-s project`), or accept that omp will list it and
+> read the label before opening.
+
 It deliberately does **not** ship a `.mcp.json`: such a file could only point at
 `./dist/mcp.js`, which does not exist until you build, so a fresh clone would get an
 entry that prompts for approval and then fails — and registering the server at user

@@ -14,6 +14,13 @@ function textResult(text: string): { content: Array<{ type: "text"; text: string
  * Claude Code has no plugin event API, so the panel is driven from the
  * session transcript and exposed as an MCP server: the three tools match the
  * OpenCode and Pi adapters, so the flow_* vocabulary is the same everywhere.
+ *
+ * This server only ever shows a **Claude Code** session — it reads
+ * ~/.claude/projects. Registering it at user scope makes it visible to every
+ * MCP client on the machine, and oh-my-pi reads Claude Code's user config, so
+ * calling these tools from omp opens a Claude Code panel rather than omp's
+ * own. The tool descriptions say so, because the agent picking a tool is the
+ * last place that mistake can still be caught.
  */
 export function createFlowMcpServer(options: DiscoveryOptions = {}): {
   server: McpServer
@@ -42,8 +49,9 @@ export function createFlowMcpServer(options: DiscoveryOptions = {}): {
   server.registerTool(
     "flow_open",
     {
-      title: "Flow Panel",
-      description: "Open the Agent Flow panel in the default browser, keeping the current view.",
+      title: "Flow Panel (Claude Code)",
+      description:
+        "Open the Agent Flow panel for the current Claude Code session, keeping the current view. Shows Claude Code only — other agents have their own panel.",
     },
     async () => textResult(`Opened ${await open(false)}`),
   )
@@ -51,9 +59,9 @@ export function createFlowMcpServer(options: DiscoveryOptions = {}): {
   server.registerTool(
     "flow_panel",
     {
-      title: "Flow Panel (reset)",
+      title: "Flow Panel (Claude Code, reset)",
       description:
-        "Open the Agent Flow panel in the default browser, re-reading the newest session transcript.",
+        "Open the Agent Flow panel for the newest Claude Code session transcript. Shows Claude Code only — other agents have their own panel.",
     },
     async () => textResult(`Opened ${await open(true)}`),
   )
@@ -61,8 +69,8 @@ export function createFlowMcpServer(options: DiscoveryOptions = {}): {
   server.registerTool(
     "flow_tree",
     {
-      title: "Flow Tree",
-      description: "Show the Agent Flow step tree for this session as text.",
+      title: "Flow Tree (Claude Code)",
+      description: "Show the Agent Flow step tree for the current Claude Code session as text.",
     },
     async () => {
       const tree = source.tree()
