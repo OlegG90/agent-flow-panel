@@ -1,14 +1,5 @@
-import type { FlowTree, PlanItem, StepNode, StepState, StepType } from "../../flow/types.ts"
-
-function makeNode(
-  id: string,
-  type: StepType,
-  label: string,
-  state: StepState,
-  content = "",
-): StepNode {
-  return { id, type, label, state, content, children: [] }
-}
+import type { FlowTree, PlanItem, StepNode } from "../../flow/types.ts"
+import { makeAnswer, makeNode } from "../../flow/nodes.ts"
 
 // oh-my-pi streams the `delegate_task` payload through the assistant text
 // channel as JSON like {"i":"explore","path":"…"}. It is bookkeeping, not a
@@ -263,9 +254,9 @@ export class PiFlowStore {
     const last = unit.turns.at(-1)
     if (last) {
       this.finishTurn(last.id)
-      const text = visibleText(last).trim()
-      if (text.length > 0) {
-        unit.steps.push(makeNode(`ans-${unit.id}`, "answer", "Answer", "completed", text))
+      const answer = makeAnswer(unit.id, visibleText(last))
+      if (answer) {
+        unit.steps.push(answer)
       }
     }
     this.openUnit = null

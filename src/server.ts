@@ -1,22 +1,10 @@
-import { execFile } from "node:child_process"
-import { promisify } from "node:util"
 import type { Plugin, PluginModule } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
 import { SessionTracker } from "./adapters/opencode/session-tracker.ts"
 import { renderTree } from "./flow/render.ts"
 import { createPanelServer } from "./server/panel-server.ts"
+import { openInBrowser } from "./server/open-browser.ts"
 import { VERSION } from "./version.ts"
-
-const execFileAsync = promisify(execFile)
-
-async function openInBrowser(url: string): Promise<void> {
-  if (process.platform === "win32") {
-    await execFileAsync("cmd", ["/c", "start", "", url])
-    return
-  }
-  const opener = process.platform === "darwin" ? "open" : "xdg-open"
-  await execFileAsync(opener, [url])
-}
 
 // State lives per plugin instance, not per module: two OpenCode instances
 // loading this plugin must not share a tracker or an HTTP port.

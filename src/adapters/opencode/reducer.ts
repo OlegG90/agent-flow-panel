@@ -1,5 +1,6 @@
 import type { Event, Message, Part, Todo, ToolState } from "@opencode-ai/sdk"
-import type { FlowTree, PlanItem, StepNode, StepState, StepType } from "../../flow/types.ts"
+import type { FlowTree, PlanItem, StepNode } from "../../flow/types.ts"
+import { makeAnswer, makeNode } from "../../flow/nodes.ts"
 
 interface TurnState {
   messageID: string
@@ -16,16 +17,6 @@ interface UnitState {
   plan: PlanItem[]
   closed: boolean
   turns: TurnState[]
-}
-
-function makeNode(
-  id: string,
-  type: StepType,
-  label: string,
-  state: StepState,
-  content = "",
-): StepNode {
-  return { id, type, label, state, content, children: [] }
 }
 
 function planState(status: string): PlanItem["state"] {
@@ -158,9 +149,9 @@ export class FlowStore {
     const last = unit.turns.at(-1)
     if (last) {
       this.completeTurn(last)
-      const text = last.text.trim()
-      if (text.length > 0) {
-        unit.steps.push(makeNode(`ans-${unit.id}`, "answer", "Answer", "completed", text))
+      const answer = makeAnswer(unit.id, last.text)
+      if (answer) {
+        unit.steps.push(answer)
       }
     }
     this.openUnit = null

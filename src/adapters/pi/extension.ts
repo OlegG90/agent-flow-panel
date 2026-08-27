@@ -1,27 +1,10 @@
-import { execFile } from "node:child_process"
-import { promisify } from "node:util"
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent"
 import { Type } from "typebox"
 import { renderTree } from "../../flow/render.ts"
 import { createPanelServer } from "../../server/panel-server.ts"
+import { openInBrowser } from "../../server/open-browser.ts"
 import { PiSessionTracker } from "./pi-session-tracker.ts"
 import { VERSION } from "../../version.ts"
-
-const execFileAsync = promisify(execFile)
-
-async function openInBrowser(url: string): Promise<void> {
-  try {
-    if (process.platform === "win32") {
-      await execFileAsync("cmd", ["/c", "start", "", url])
-      return
-    }
-    const opener = process.platform === "darwin" ? "open" : "xdg-open"
-    await execFileAsync(opener, [url])
-  } catch (err) {
-    console.error(`[flow-panel] failed to open browser for ${url}:`, err)
-    throw err
-  }
-}
 
 function stringField(value: unknown, key: string): string | undefined {
   if (value !== null && typeof value === "object" && key in value) {

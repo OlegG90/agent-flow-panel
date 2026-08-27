@@ -1,4 +1,5 @@
-import type { FlowTree, PlanItem, StepNode, StepState, StepType, UnitOfWork } from "../../flow/types.ts"
+import type { FlowTree, PlanItem, StepNode, UnitOfWork } from "../../flow/types.ts"
+import { makeAnswer, makeNode } from "../../flow/nodes.ts"
 
 /**
  * Claude Code keeps a session as an append-only JSONL transcript under
@@ -45,16 +46,6 @@ interface ContentBlock {
   tool_use_id?: string
   content?: unknown
   is_error?: boolean
-}
-
-function makeNode(
-  id: string,
-  type: StepType,
-  label: string,
-  state: StepState,
-  content = "",
-): StepNode {
-  return { id, type, label, state, content, children: [] }
 }
 
 /**
@@ -338,11 +329,9 @@ export function reduceTranscript(lines: readonly string[], sessionID = ""): Flow
     if (!scope) {
       return
     }
-    const text = scope.lastTurn?.text.trim() ?? ""
-    if (text.length > 0) {
-      scope.unit.steps.push(
-        makeNode(`ans-${scope.unit.id}`, "answer", "Answer", "completed", text),
-      )
+    const answer = makeAnswer(scope.unit.id, scope.lastTurn?.text ?? "")
+    if (answer) {
+      scope.unit.steps.push(answer)
     }
   }
 
