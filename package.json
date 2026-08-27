@@ -4,6 +4,9 @@
   "private": true,
   "description": "OpenCode plugin that visualizes an agent's work as a live flowchart panel (OpenCode + Pi / oh-my-pi)",
   "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
   "exports": {
     "./server": "./src/server.ts",
     "./extension": "./src/extension.ts",

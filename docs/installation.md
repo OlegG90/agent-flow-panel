@@ -102,10 +102,16 @@ omp -e C:/path/to/dist/extension.js -p "echo hi" 2>&1 | findstr flow
 
 ## Build & development
 
+**Node versions.** `package.json` declares `engines: { node: ">=22.18" }`, which is what
+*this repository* needs: `npm test` and `npm run panel:fixture` run `.ts` files directly,
+and unflagged type stripping landed in 22.18. The **built bundles** are plain JavaScript
+and only need **Node ≥ 17** (for `structuredClone`), so an agent on an older runtime can
+still load them.
+
 ```sh
 npm install
-npm run build          # → dist/server.js + dist/extension.js
-npm test               # node --test src/**/*.test.ts (163 tests)
+npm run build          # → dist/server.js + dist/mcp.js + dist/extension.js
+npm test               # node --test src/**/*.test.ts (167 tests)
 npm run typecheck
 npm run lint
 npm run panel:fixture  # → docs/previews/panel-preview-*.html
