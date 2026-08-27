@@ -7,7 +7,7 @@ Plugin that visualizes agent work as a **live flowchart in the browser**: step t
 
 ## What it is
 
-Each human request is a **Unit of Work** — a tree `UserRequest → ModelCall → ModelReply → ToolCall → ToolResult → Answer`. Sub-agents expand under their `ToolCall{subtask}`, >3 collapse into `Sub-agent summary`, empty `oh-my-pi` turns become `Orchestration` (dashed). The panel updates via SSE without reload.
+Every step carries its duration, and on OpenCode its tokens and cost. Each human request is a **Unit of Work** — a tree `UserRequest → ModelCall → ModelReply → ToolCall → ToolResult → Answer`. Sub-agents expand under their `ToolCall{subtask}`, >3 collapse into `Sub-agent summary`, empty `oh-my-pi` turns become `Orchestration` (dashed). The panel updates via SSE without reload.
 
 Details: [`docs/concepts.md`](docs/concepts.md) (step types, states), original glossary — [`CONTEXT.md`](CONTEXT.md).
 
@@ -32,12 +32,12 @@ Full guide: [`docs/installation.md`](docs/installation.md) · Architecture: [`do
 - `/flow-reset` / `flow_panel` — open from scratch
 - `/flow_tree` / `flow_tree` — text tree in chat
 
-Panel: `http://127.0.0.1:<port>/?t=<token>` (`/` HTML, `/data` JSON, `/events` SSE — all require the token). Click `step-label` for details, `▾` to collapse.
+Panel: `http://127.0.0.1:<port>/?t=<token>` (`/` HTML, `/data` JSON, `/node?id=` one step, `/export` standalone snapshot, `/events` SSE — all require the token). Click `step-label` for details, `▾` to collapse; the toolbar filters steps, follows the running one, and exports the flow.
 
 ## Development
 
 ```sh
-npm test            # 106 tests (node --test)
+npm test            # 121 tests (node --test)
 npm run typecheck
 npm run lint
 npm run panel:fixture  # → docs/previews/panel-preview-*.html
