@@ -5,6 +5,14 @@ declare module "@earendil-works/pi-coding-agent" {
       name: string,
       opts: { description: string; handler: (args: string, ctx: ExtensionContext) => Promise<void> },
     ): void
+    /**
+     * Inject a message into the session. A command handler returns void, so
+     * this is the only way a command can put text in front of the user.
+     */
+    sendMessage(
+      message: { customType: string; content: string; display: boolean; details?: unknown },
+      options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
+    ): void
     registerTool(tool: {
       name: string
       label: string

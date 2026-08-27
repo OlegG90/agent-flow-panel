@@ -35,6 +35,13 @@ The server provides the same `flow_open` / `flow_panel` / `flow_tree` tools as t
 other adapters. This repository ships `/flow` and `/flow-tree` commands under
 `.claude/commands/`, which call them.
 
+Pi and oh-my-pi read `.claude/commands/` too, so both names would otherwise
+resolve to a file telling the agent to call an MCP server they do not have.
+The extension registers `/flow` and `/flow-tree` itself, which shadows the
+files — verified through `omp --mode=rpc`, where both report `source:
+extension` once it is loaded. Without `-e` the files win, and the commands
+say so rather than letting the agent improvise a substitute.
+
 > **Use `-s local`, and here is why it matters.** oh-my-pi reads Claude Code's
 > configuration, and this server reads `~/.claude/projects` — so a `flow_open`
 > called from omp opens a **Claude Code** panel rather than omp's. Nothing

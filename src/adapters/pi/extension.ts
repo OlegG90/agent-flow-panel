@@ -228,6 +228,11 @@ export default function piExtension(pi: ExtensionAPI): void {
     await panelServer.close()
   })
 
+  function treeText(sessionID: string): string {
+    const tree = tracker.tree(sessionID)
+    return tree.units.length > 0 ? renderTree(tree) : "No flow data recorded for this session."
+  }
+
   pi.registerCommand("flow", {
     description: "Open the Agent Flow panel (keep history)",
     handler: async (_args: string, ctx) => {
@@ -265,6 +270,24 @@ export default function piExtension(pi: ExtensionAPI): void {
     },
   })
 
+  // Without this, `/flow-tree` resolves to the Claude Code command file in
+  // .claude/commands/, which tells the agent to call an MCP server Pi does
+  // not have — and the agent improvises instead of stopping. Registering the
+  // name here shadows the file, the way /flow already does.
+  pi.registerCommand("flow-tree", {
+    description: "Show the Agent Flow step tree for this session",
+    handler: async (_args: string, ctx) => {
+      const sid = ctx.sessionManager.getSessionId() ?? "default"
+      // A command handler returns void, so the tree reaches the transcript as
+      // a custom message. It stays out of a turn: this is a display, not a
+      // question for the model.
+      pi.sendMessage(
+        { customType: "flow-tree", content: treeText(sid), display: true },
+        { triggerTurn: false },
+      )
+    },
+  })
+
   pi.registerTool({
     name: "flow_panel",
     label: "Flow Panel",
@@ -296,9 +319,7 @@ export default function piExtension(pi: ExtensionAPI): void {
     parameters: Type.Object({}),
     async execute(_toolCallId: string, _params: unknown, _signal: AbortSignal, _onUpdate: unknown, ctx) {
       const sid = ctx.sessionManager.getSessionId() ?? "default"
-      const tree = tracker.tree(sid)
-      const text = tree.units.length > 0 ? renderTree(tree) : "No flow data recorded for this session."
-      return { content: [{ type: "text", text }], details: {} }
+      return { content: [{ type: "text", text: treeText(sid) }], details: {} }
     },
   })
 }
