@@ -25,7 +25,7 @@ Every node has a `State`: `pending` (from Plan, dashed), `running` (pulse), `com
 - **Unit of Work** — one `UserRequest` plus the full step tree that fulfills it.
 - **Subtask** — internal work of a sub-agent, nested as `Unit(s)` under the launch node.
 - **Plan** — agent-declared upcoming steps (`todo.updated` → `PlanItem{pending|in-progress|completed}`, filters `cancelled`). Empty in Pi (no core primitive).
-- **Panel** — live flowchart of the session (`/` → HTML, `/data` → JSON, `/events` → SSE).
+- **Panel** — live flowchart of the session (`/` → HTML, `/data` → JSON, `/events` → SSE; all gated by `?t=<token>`).
 
 ## Relationships
 

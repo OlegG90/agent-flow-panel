@@ -5,10 +5,11 @@ Live flowchart of the session in the browser: step tree on the left (60%), selec
 ## Server
 
 `src/server/panel-server.ts`:
+- Every route requires the per-run access token: `?t=<token>`; without it → `401`. `url(path?)` builds a tokenized URL (`url()` → `/?t=…`, `url("data")` → `/data?t=…`).
 - `GET /` → `renderPanelHtml(getTree())` (full HTML with `STYLES` + `CLIENT_SCRIPT`)
 - `GET /data` → `JSON FlowTree`
 - `GET /events` → SSE (`Content-Type: text/event-stream`, `: connected` + `data: <renderFlowHtml>` on each `publish()`)
-- Port `0` → random `http://127.0.0.1:<port>/`, `publish()` is a no-op without clients and tolerates dead sockets
+- Port `0` → random `http://127.0.0.1:<port>/?t=<token>`, `publish()` is a no-op without clients and tolerates dead sockets
 
 Opened via `execFile("cmd /c start")` / `open` / `xdg-open` from `openInBrowser`, but a failure to open does not crash the server — the URL is still returned.
 
@@ -22,7 +23,7 @@ Opened via `execFile("cmd /c start")` / `open` / `xdg-open` from `openInBrowser`
 - Types → CSS: `step--user-request` blue, `model-call` purple, `tool-call` yellow, `orchestration` grey dashed 0.6, `subtask` purple background
 
 Client (`CLIENT_SCRIPT`):
-- `EventSource("/events")` replaces `#flow` innerHTML (single-line `renderFlowHtml` for SSE)
+- `EventSource("/events" + location.search)` (carries the token) replaces `#flow` innerHTML (single-line `renderFlowHtml` for SSE)
 - `collapsed: Set<id>` keeps collapsed nodes between updates, `selectedId` — highlight `step--selected` + details panel
 
 ## Static previews
@@ -35,5 +36,5 @@ Fixtures: `fixtures/subagent-session.json`, `subagent-summary.json`. Preview HTM
 
 ## Limitations
 
-- Localhost only, no auth (`/data` is open to any local process).
+- Localhost only. Access is gated by a random 128-bit token in the URL, regenerated per panel server, so another local process cannot read `/data` without the link. The token lives in the query string, so it also lands in browser history.
 - `structuredClone` requires Node ≥17.

@@ -32,15 +32,15 @@ Full guide: [`docs/installation.md`](docs/installation.md) · Architecture: [`do
 - `/flow-reset` / `flow_panel` — open from scratch
 - `/flow_tree` / `flow_tree` — text tree in chat
 
-Panel: `http://127.0.0.1:<port>/` (`/` HTML, `/data` JSON, `/events` SSE). Click `step-label` for details, `▾` to collapse.
+Panel: `http://127.0.0.1:<port>/?t=<token>` (`/` HTML, `/data` JSON, `/events` SSE — all require the token). Click `step-label` for details, `▾` to collapse.
 
 ## Development
 
 ```sh
-npm test            # 81 tests (node --test)
+npm test            # 90 tests (node --test)
 npm run typecheck
 npm run lint
 npm run panel:fixture  # → docs/previews/panel-preview-*.html
 ```
 
-Layout: `src/flow/` (shared), `src/server/panel-server.ts`, `src/adapters/opencode|pi/`, `src/server.ts` / `src/extension.ts`. Agent docs: `AGENTS.md`.
+Layout: `src/flow/` (shared core — types, render, `BaseSessionTracker`), `src/server/panel-server.ts`, `src/adapters/opencode|pi/`, `src/server.ts` / `src/extension.ts`. Agent docs: `AGENTS.md`.
