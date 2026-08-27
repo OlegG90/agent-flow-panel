@@ -242,6 +242,25 @@ function renderPlan(plan: PlanItem[], format: "text" | "html"): string {
     .join("")}</ul>`
 }
 
+/**
+ * CONTEXT.md defines the Plan as upcoming steps "previewed in the panel as
+ * pending nodes". Only items still to be started get a node — the ones already
+ * done or in flight are visible as real steps, and duplicating them would just
+ * double the tree. The chips above stay as the compact overview.
+ */
+function plannedNodes(unit: UnitOfWork): StepNode[] {
+  return unit.plan
+    .filter((item) => item.state === "pending")
+    .map((item) => ({
+      id: `plan-${item.id}`,
+      type: "planned" as const,
+      label: item.title,
+      state: "pending" as const,
+      content: "",
+      children: [],
+    }))
+}
+
 function unitSummary(unit: UnitOfWork): string[] {
   const totals = totalsOf(unit)
   const out: string[] = []
@@ -267,6 +286,9 @@ function unitText(unit: UnitOfWork, index: number): string {
   for (const step of unit.steps) {
     lines.push(walk(collapseTurn(step), 1, textLeaf))
   }
+  for (const planned of plannedNodes(unit)) {
+    lines.push(walk(planned, 1, textLeaf))
+  }
   const plan = renderPlan(unit.plan, "text")
   if (plan) {
     lines.push(plan)
@@ -284,6 +306,8 @@ function unitHtml(unit: UnitOfWork, index: number): string {
     renderPlan(unit.plan, "html"),
     `<ol class="steps">${walk(unit.request, 0, htmlLeaf)}${unit.steps
       .map((step) => walk(collapseTurn(step), 0, htmlLeaf))
+      .join("")}${plannedNodes(unit)
+      .map((planned) => walk(planned, 0, htmlLeaf))
       .join("")}</ol>`,
     "</section>",
   ].join("")
@@ -321,6 +345,7 @@ const STYLES = `
   --failed: #f87171;
   --subtask-summary: #c084fc;
   --orchestration: #6b7280;
+  --planned: #64748b;
   --selected: #22d3ee;
 }
 * { box-sizing: border-box; }
@@ -364,6 +389,8 @@ h1 { font-size: 1.25rem; }
 .step--answer { border-color: var(--answer); }
 .step--subtask-summary { border-color: var(--subtask-summary); }
 .step--orchestration { border-color: var(--orchestration); border-style: dashed; opacity: 0.6; }
+.step--planned { border-color: var(--planned); border-style: dashed; opacity: 0.55; }
+.step--planned .step-label { font-weight: 400; }
 .step--done { opacity: 1; }
 .step--pending { opacity: 0.45; border-style: dashed; }
 .step--running { opacity: 1; animation: pulse 1.6s ease-in-out infinite; }

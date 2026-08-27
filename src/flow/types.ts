@@ -7,6 +7,8 @@ export type StepType =
   | "answer"
   | "subtask-summary"
   | "orchestration"
+  /** A plan item the agent has declared but not started; preview only. */
+  | "planned"
 
 export type StepState = "pending" | "running" | "completed" | "failed"
 

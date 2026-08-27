@@ -321,6 +321,65 @@ describe("turn collapsing", () => {
   })
 })
 
+describe("plan preview", () => {
+  const planned: FlowTree = {
+    sessionID: "s1",
+    units: [
+      {
+        id: "m1",
+        request: tree.units[0]!.request,
+        steps: [
+          {
+            id: "tc-c1",
+            type: "tool-call",
+            label: "Tool: bash",
+            state: "completed",
+            content: "",
+            children: [],
+          },
+        ],
+        plan: [
+          { id: "t1", title: "Read the config", state: "completed" },
+          { id: "t2", title: "Patch the reducer", state: "in-progress" },
+          { id: "t3", title: "Run the tests", state: "pending" },
+          { id: "t4", title: "Update the docs", state: "pending" },
+        ],
+      },
+    ],
+  }
+
+  it("previews not-yet-started plan items as pending nodes after the steps", () => {
+    const html = renderFlowHtml(planned)
+    assert.ok(html.includes('data-id="plan-t3"'))
+    assert.ok(html.includes('data-id="plan-t4"'))
+    assert.ok(html.includes("step--planned"))
+    assert.ok(html.includes('data-state="pending"'))
+    assert.ok(html.indexOf('data-id="tc-c1"') < html.indexOf('data-id="plan-t3"'))
+  })
+
+  it("does not duplicate items whose work is already visible as steps", () => {
+    const html = renderFlowHtml(planned)
+    assert.ok(!html.includes('data-id="plan-t1"'), "completed items stay chips only")
+    assert.ok(!html.includes('data-id="plan-t2"'), "in-progress items stay chips only")
+  })
+
+  it("keeps the chips as the compact overview", () => {
+    const html = renderFlowHtml(planned)
+    assert.ok(html.includes('<ul class="plan">'))
+    assert.ok(html.includes('<li class="plan-item" data-state="completed">Read the config</li>'))
+  })
+
+  it("previews the same items in the text tree", () => {
+    const text = renderTree(planned)
+    assert.ok(text.includes("[pending] Run the tests"))
+    assert.ok(text.includes("[pending] Update the docs"))
+  })
+
+  it("adds nothing when the unit has no plan", () => {
+    assert.ok(!renderFlowHtml(tree).includes("step--planned"))
+  })
+})
+
 describe("metrics", () => {
   const metered: FlowTree = {
     sessionID: "s1",
