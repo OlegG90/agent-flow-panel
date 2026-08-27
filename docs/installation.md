@@ -32,8 +32,13 @@ Or per project, in `.mcp.json` next to the code you are working on:
 ```
 
 The server provides the same `flow_open` / `flow_panel` / `flow_tree` tools as the
-other adapters. This repository ships a `.mcp.json` pointing at its own build, plus
-`/flow` and `/flow-tree` commands under `.claude/commands/`.
+other adapters. This repository ships `/flow` and `/flow-tree` commands under
+`.claude/commands/`, which call them.
+
+It deliberately does **not** ship a `.mcp.json`: such a file could only point at
+`./dist/mcp.js`, which does not exist until you build, so a fresh clone would get an
+entry that prompts for approval and then fails — and registering the server at user
+scope as well would put the same name in two scopes, which starts two copies of it.
 
 Two things follow from reading a file rather than a stream:
 

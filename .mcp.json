@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "flow-panel": {
-      "command": "node",
-      "args": ["./dist/mcp.js"]
-    }
-  }
-}
