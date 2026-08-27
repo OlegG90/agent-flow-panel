@@ -321,6 +321,36 @@ describe("turn collapsing", () => {
   })
 })
 
+describe("navigation toolbar", () => {
+  it("renders the filter, follow and collapse controls", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes('id="filter-search"'))
+    assert.ok(html.includes('id="filter-failed"'))
+    assert.ok(html.includes('id="follow-toggle"'))
+    assert.ok(html.includes('id="collapse-all"'))
+    assert.ok(html.includes('id="expand-all"'))
+  })
+
+  it("wires the filter to input and to every incoming frame", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes('search.addEventListener("input", applyFilter)'))
+    assert.ok(html.includes("applyFilter();"))
+    assert.ok(html.includes("applyFollow();"))
+  })
+
+  it("keeps matches visible under a collapsed ancestor while filtering", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes(".filtering .step.collapsed > .steps--nested { display: block; }"))
+    assert.ok(html.includes(".step--hidden { display: none; }"))
+  })
+
+  it("scrolls to the last running step only when following", () => {
+    const html = renderPanelHtml(tree)
+    assert.ok(html.includes("followToggle.getAttribute(\"aria-pressed\") !== \"true\""))
+    assert.ok(html.includes('flow.querySelectorAll(\'[data-state="running"]\')'))
+  })
+})
+
 describe("plan preview", () => {
   const planned: FlowTree = {
     sessionID: "s1",

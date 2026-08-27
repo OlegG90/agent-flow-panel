@@ -404,6 +404,16 @@ h1 { font-size: 1.25rem; }
 .topbar h1 { margin: 0; }
 #details-toggle { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.8rem; }
 #details-toggle:hover { border-color: var(--selected); color: var(--selected); }
+.toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.toolbar-search { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; min-width: 12rem; }
+.toolbar-search:focus { outline: none; border-color: var(--selected); }
+.toolbar-button, .toolbar-toggle { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.8rem; }
+.toolbar-button:hover, .toolbar-toggle:hover { border-color: var(--selected); color: var(--selected); }
+.toolbar-toggle[aria-pressed="true"] { border-color: var(--selected); color: var(--selected); background: rgba(34, 211, 238, 0.12); }
+.step--hidden { display: none; }
+.step--hit > .step-label { text-decoration: underline; text-decoration-color: var(--selected); text-underline-offset: 3px; }
+/* While filtering, a collapsed ancestor must not hide a match beneath it. */
+.filtering .step.collapsed > .steps--nested { display: block; }
 .layout { display: flex; gap: 1rem; align-items: flex-start; }
 .flow { flex: 3; min-width: 0; }
 .details {
@@ -450,6 +460,11 @@ const CLIENT_SCRIPT = `
   const details = document.getElementById("details");
   const layout = document.getElementById("layout");
   const detailsToggle = document.getElementById("details-toggle");
+  const search = document.getElementById("filter-search");
+  const failedToggle = document.getElementById("filter-failed");
+  const followToggle = document.getElementById("follow-toggle");
+  const collapseAll = document.getElementById("collapse-all");
+  const expandAll = document.getElementById("expand-all");
   if (!flow || !details || !layout || !detailsToggle) return;
   const collapsed = new Set();
   let selectedId = null;
@@ -543,9 +558,53 @@ const CLIENT_SCRIPT = `
     detailsToggle.textContent = "Hide details";
     loadDetails(step);
   };
+  // A long session is unreadable without a way to narrow it down. Filtering
+  // works on what the frame carries: labels and content previews.
+  const applyFilter = () => {
+    const query = search ? search.value.trim().toLowerCase() : "";
+    const failedOnly = failedToggle && failedToggle.getAttribute("aria-pressed") === "true";
+    const steps = flow.querySelectorAll(".step");
+    for (const step of steps) step.classList.remove("step--hidden", "step--hit");
+    flow.classList.toggle("filtering", Boolean(query) || Boolean(failedOnly));
+    if (!query && !failedOnly) return;
+    for (const step of steps) {
+      const label = step.querySelector(":scope > .step-label");
+      const preview = step.querySelector(":scope > .step-content");
+      const hay = ((label ? label.textContent : "") + " " + (preview ? preview.textContent : "")).toLowerCase();
+      const textOk = !query || hay.indexOf(query) !== -1;
+      const stateOk = !failedOnly || step.getAttribute("data-state") === "failed";
+      if (textOk && stateOk) step.classList.add("step--hit");
+    }
+    // An ancestor of a hit stays visible so the hit keeps its context.
+    for (const step of steps) {
+      if (!step.classList.contains("step--hit") && !step.querySelector(".step--hit")) {
+        step.classList.add("step--hidden");
+      }
+    }
+  };
+  const applyFollow = () => {
+    if (!followToggle || followToggle.getAttribute("aria-pressed") !== "true") return;
+    const running = flow.querySelectorAll('[data-state="running"]');
+    const last = running[running.length - 1];
+    if (last) last.scrollIntoView({ block: "nearest" });
+  };
+  const setAllCollapsed = (value) => {
+    collapsed.clear();
+    for (const step of flow.querySelectorAll(".step.has-children")) {
+      const id = step.getAttribute("data-id");
+      step.classList.toggle("collapsed", value);
+      if (value && id) collapsed.add(id);
+    }
+  };
   // Carry the page's access token (?t=…) over to the event stream.
   const source = new EventSource("${EVENTS_PATH}" + window.location.search);
-  source.onmessage = (event) => { flow.innerHTML = event.data; applyCollapsed(); applySelected(); };
+  source.onmessage = (event) => {
+    flow.innerHTML = event.data;
+    applyCollapsed();
+    applySelected();
+    applyFilter();
+    applyFollow();
+  };
   flow.addEventListener("click", (event) => {
     const toggle = event.target.closest(".step-toggle");
     if (toggle) {
@@ -568,6 +627,19 @@ const CLIENT_SCRIPT = `
     const hidden = layout.classList.toggle("details-hidden");
     detailsToggle.textContent = hidden ? "Show details" : "Hide details";
   });
+  if (search) search.addEventListener("input", applyFilter);
+  const pressToggle = (button, after) => {
+    if (!button) return;
+    button.addEventListener("click", () => {
+      const next = button.getAttribute("aria-pressed") !== "true";
+      button.setAttribute("aria-pressed", String(next));
+      if (after) after(next);
+    });
+  };
+  pressToggle(failedToggle, applyFilter);
+  pressToggle(followToggle, applyFollow);
+  if (collapseAll) collapseAll.addEventListener("click", () => setAllCollapsed(true));
+  if (expandAll) expandAll.addEventListener("click", () => setAllCollapsed(false));
 })();
 </script>
 `
@@ -584,7 +656,14 @@ export function renderPanelHtml(tree: FlowTree): string {
     "<body>",
     '<header class="topbar">',
     `<h1>Agent Flow Panel <span style="font-size:0.7em;font-weight:400;color:var(--muted)">v${VERSION}</span></h1>`,
+    '<div class="toolbar">',
+    '<input id="filter-search" class="toolbar-search" type="search" placeholder="Filter steps…" aria-label="Filter steps" />',
+    '<button id="filter-failed" class="toolbar-toggle" type="button" aria-pressed="false">Failed only</button>',
+    '<button id="follow-toggle" class="toolbar-toggle" type="button" aria-pressed="false">Follow</button>',
+    '<button id="collapse-all" class="toolbar-button" type="button">Collapse all</button>',
+    '<button id="expand-all" class="toolbar-button" type="button">Expand all</button>',
     '<button id="details-toggle" type="button">Hide details</button>',
+    "</div>",
     "</header>",
     '<main class="layout" id="layout">',
     `<div class="flow" id="${FLOW_CONTAINER_ID}">${renderFlowHtml(tree)}</div>`,
