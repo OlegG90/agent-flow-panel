@@ -68,8 +68,9 @@ function titleOf(name: string, input: Record<string, unknown> | undefined): stri
     case "Grep":
     case "Glob":
       return pick("pattern")
+    case "Agent":
     case "Task":
-      return pick("description")
+      return pick("subagent_type") || pick("description")
     case "WebFetch":
       return pick("url")
     default:
@@ -78,6 +79,12 @@ function titleOf(name: string, input: Record<string, unknown> | undefined): stri
 }
 
 const MAX_RESULT_CHARS = 2000
+
+/**
+ * Launching a sub-agent. `Agent` is what Claude Code 2.x calls it; `Task` is
+ * kept because older transcripts use that name.
+ */
+const SUBAGENT_TOOLS = new Set(["Agent", "Task"])
 
 function resultTextOf(record: TranscriptRecord, block: ContentBlock): string {
   if (typeof block.content === "string") {
@@ -140,6 +147,41 @@ function tokensFrom(usage: Record<string, unknown>): StepNode["tokens"] {
   }
 }
 
+/**
+ * A sub-agent's own steps are NOT written to the transcript — verified by
+ * running one: the file gains the launch and its result, nothing between.
+ * What the result does carry is a summary of the run, so the launch node shows
+ * that instead of an empty branch.
+ */
+function applyAgentSummary(node: StepNode, result: unknown): void {
+  if (result === null || typeof result !== "object") {
+    return
+  }
+  const summary = result as Record<string, unknown>
+  const agentType = typeof summary["agentType"] === "string" ? summary["agentType"] : ""
+  if (agentType) {
+    node.label = `Sub-agent: ${agentType}`
+  }
+  const usage = summary["usage"]
+  if (usage !== null && typeof usage === "object") {
+    node.tokens = tokensFrom(usage as Record<string, unknown>)
+  }
+  const duration = summary["totalDurationMs"]
+  if (typeof duration === "number" && node.endedAt !== undefined) {
+    // The sub-agent reports its own wall clock, which is truer than the gap
+    // between the launch line and the result line.
+    node.startedAt = node.endedAt - duration
+  }
+  const tools = summary["totalToolUseCount"]
+  const model = typeof summary["resolvedModel"] === "string" ? summary["resolvedModel"] : ""
+  const parts = [model, typeof tools === "number" ? `${tools} tool calls` : ""].filter(Boolean)
+  if (parts.length > 0) {
+    node.children.push(
+      makeNode(`sub-${node.id}`, "orchestration", parts.join(" · "), "completed"),
+    )
+  }
+}
+
 interface Turn {
   call: StepNode
   reply: StepNode
@@ -183,9 +225,6 @@ export function reduceTranscript(lines: readonly string[], sessionID = ""): Flow
   const records = parseTranscript(lines)
   const units: UnitOfWork[] = []
   const toolNodes = new Map<string, StepNode>()
-  /** assistant record uuid → the tool nodes it launched, for sidechain grafting. */
-  const launchedBy = new Map<string, StepNode[]>()
-  const sidechainScopes = new Map<string, Scope>()
 
   let main: Scope | undefined
   let previousAt: number | undefined
@@ -207,11 +246,6 @@ export function reduceTranscript(lines: readonly string[], sessionID = ""): Flow
     const startedBefore = previousAt
     if (at !== undefined && (record.type === "user" || record.type === "assistant")) {
       previousAt = at
-    }
-
-    if (record.isSidechain) {
-      applySidechain(record, at, startedBefore)
-      continue
     }
 
     if (isHumanPrompt(record)) {
@@ -237,9 +271,6 @@ export function reduceTranscript(lines: readonly string[], sessionID = ""): Flow
     applyToScope(main, record, at, startedBefore)
   }
   closeScope(main)
-  for (const scope of sidechainScopes.values()) {
-    closeScope(scope)
-  }
 
   return { sessionID, units }
 
@@ -272,7 +303,11 @@ export function reduceTranscript(lines: readonly string[], sessionID = ""): Flow
         }
         node.state = "completed"
         node.content = text.slice(0, MAX_RESULT_CHARS)
-        if (!node.subtask && !node.children.some((child) => child.type === "tool-result")) {
+        if (node.subtask) {
+          applyAgentSummary(node, record.toolUseResult)
+          continue
+        }
+        if (!node.children.some((child) => child.type === "tool-result")) {
           node.children.push(
             makeNode(`tr-${node.id}`, "tool-result", "Result", "completed", node.content),
           )
@@ -325,93 +360,15 @@ export function reduceTranscript(lines: readonly string[], sessionID = ""): Flow
           "running",
         )
         node.startedAt = at
-        if (block.name === "Task") {
+        if (SUBAGENT_TOOLS.has(block.name)) {
           node.subtask = true
-          node.content = title
-          if (record.uuid) {
-            const launched = launchedBy.get(record.uuid) ?? []
-            launched.push(node)
-            launchedBy.set(record.uuid, launched)
-          }
+          node.label = `Sub-agent: ${title || block.name}`
+          const brief = typeof block.input?.["prompt"] === "string" ? block.input["prompt"] : ""
+          node.content = brief || title
         }
         toolNodes.set(block.id, node)
         turn.reply.children.push(node)
       }
     }
-  }
-
-  /**
-   * Sub-agent records live in the same file, marked `isSidechain` and threaded
-   * by `parentUuid` back to the assistant record that ran the Task tool.
-   *
-   * UNVERIFIED against a real sample: no transcript available while building
-   * this carried a single sidechain record. The shape follows the fields the
-   * format already uses; treat it as the least-confident part of the adapter.
-   */
-  function applySidechain(
-    record: TranscriptRecord,
-    at: number | undefined,
-    startedBefore: number | undefined,
-  ): void {
-    const parent = record.parentUuid ?? undefined
-    let scope = parent ? sidechainScopes.get(parent) : undefined
-
-    if (!scope && parent && isHumanPrompt(record)) {
-      // The sub-agent's own brief: the first record of the sidechain.
-      const host = (launchedBy.get(parent) ?? [])[0]
-      const id = record.uuid ?? `sub-${sidechainScopes.size}`
-      const unit: UnitOfWork = {
-        id,
-        request: makeNode(
-          `ur-${id}`,
-          "user-request",
-          "User request",
-          "completed",
-          record.message?.content as string,
-        ),
-        steps: [],
-        plan: [],
-      }
-      scope = { unit, turns: new Map(), lastTurn: undefined }
-      sidechainScopes.set(parent, scope)
-      if (record.uuid) {
-        sidechainScopes.set(record.uuid, scope)
-      }
-      if (host) {
-        host.children.push(unit.request)
-      }
-      return
-    }
-
-    if (!scope) {
-      return
-    }
-    if (record.uuid) {
-      sidechainScopes.set(record.uuid, scope)
-    }
-    const before = scope.unit.steps.length
-    applyToScope(scope, record, at, startedBefore)
-    // Newly created steps belong under the launch node, not at unit level.
-    const host = findHostOf(scope)
-    if (host) {
-      for (const step of scope.unit.steps.slice(before)) {
-        if (!host.children.includes(step)) {
-          host.children.push(step)
-        }
-      }
-    }
-  }
-
-  function findHostOf(scope: Scope): StepNode | undefined {
-    for (const [parentUuid, candidate] of sidechainScopes) {
-      if (candidate !== scope) {
-        continue
-      }
-      const launched = launchedBy.get(parentUuid)
-      if (launched && launched[0]) {
-        return launched[0]
-      }
-    }
-    return undefined
   }
 }

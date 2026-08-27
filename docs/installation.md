@@ -41,6 +41,10 @@ Two things follow from reading a file rather than a stream:
   working directory is, the panel will show it — including yesterday's.
 - **Updates are per message, not per token.** A transcript line is written when a
   message completes, so steps appear as they finish.
+- **Sub-agents show as one node, not a branch.** Claude Code does not record a
+  sub-agent's own steps, so the panel shows its brief, its report and its run
+  summary (model, duration, tokens, tool count) rather than an expandable tree.
+  This is the one place the other adapters go deeper.
 
 `flow_panel` re-resolves the newest transcript, which is what you want after
 `/clear` starts a new session; `flow_open` keeps showing the one already loaded.

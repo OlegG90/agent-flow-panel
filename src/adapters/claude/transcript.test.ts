@@ -191,58 +191,86 @@ describe("reduceTranscript", () => {
 })
 
 describe("reduceTranscript sub-agents", () => {
-  // NOTE: this path is modelled on the transcript's own fields but was never
-  // seen in a real sample — no available transcript contained a sidechain.
+  // Shapes verified by actually running a sub-agent and reading the file back:
+  // the transcript gains the launch and its result, and nothing in between.
+  const AGENT_RESULT = {
+    status: "completed",
+    agentType: "general-purpose",
+    resolvedModel: "claude-opus-5",
+    totalDurationMs: 85466,
+    totalToolUseCount: 9,
+    usage: {
+      input_tokens: 2,
+      output_tokens: 816,
+      cache_read_input_tokens: 44648,
+      cache_creation_input_tokens: 344,
+      output_tokens_details: { thinking_tokens: 0 },
+    },
+  }
+
   const lines = [
-    prompt("u1", "research it", T(0)),
+    prompt("u1", "merge the branch", T(0)),
     assistant("a1", "req-1", T(2), [
-      { type: "tool_use", id: "tu-task", name: "Task", input: { description: "dig into pricing" } },
+      {
+        type: "tool_use",
+        id: "tu-agent",
+        name: "Agent",
+        input: { subagent_type: "general-purpose", description: "Merge branch", prompt: "Merge it." },
+      },
     ]),
     JSON.stringify({
       type: "user",
-      uuid: "s1",
-      parentUuid: "a1",
-      isSidechain: true,
-      timestamp: T(3),
-      message: { role: "user", content: "Research pricing, facts only" },
+      uuid: "r1",
+      timestamp: T(88),
+      sourceToolAssistantUUID: "a1",
+      toolUseResult: AGENT_RESULT,
+      message: {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: "tu-agent", content: "Merge complete." }],
+      },
     }),
-    JSON.stringify({
-      type: "assistant",
-      uuid: "s2",
-      parentUuid: "s1",
-      isSidechain: true,
-      requestId: "req-sub",
-      timestamp: T(6),
-      message: { role: "assistant", content: [{ type: "text", text: "Found the rates." }] },
-    }),
-    toolResult("r1", T(9), "tu-task", "sub-agent finished"),
   ]
 
-  it("marks the Task call as a sub-agent launch", () => {
+  it("marks an Agent call as a sub-agent launch", () => {
+    // Claude Code 2.x names the tool `Agent`; matching only `Task` rendered it
+    // as an ordinary tool with no sub-agent marker.
     const launch = flat(reduceTranscript(lines).units[0]!.steps).find((n) => n.subtask)
-    assert.ok(launch, "a Task tool_use becomes a subtask node")
-    assert.equal(launch!.label, "Tool: Task · dig into pricing")
+    assert.ok(launch, "the Agent tool becomes a subtask node")
+    assert.equal(launch!.label, "Sub-agent: general-purpose")
   })
 
-  it("grafts the sub-agent's own work under the launch node", () => {
+  it("still recognises the older Task name", () => {
+    const older = [
+      prompt("u1", "go", T(0)),
+      assistant("a1", "req-1", T(1), [
+        { type: "tool_use", id: "tu-t", name: "Task", input: { description: "dig" } },
+      ]),
+    ]
+    const launch = flat(reduceTranscript(older).units[0]!.steps).find((n) => n.subtask)
+    assert.equal(launch?.label, "Sub-agent: dig")
+  })
+
+  it("shows the sub-agent's own duration and tokens, not the gap between lines", () => {
     const launch = flat(reduceTranscript(lines).units[0]!.steps).find((n) => n.subtask)!
-    const nested = flat(launch.children)
-    assert.ok(
-      nested.some((n) => n.type === "user-request" && n.content === "Research pricing, facts only"),
-      "the sub-agent brief hangs under its launch node",
-    )
-    assert.ok(
-      nested.some((n) => n.content === "Found the rates."),
-      "so does the sub-agent's reply",
-    )
+    assert.equal(launch.endedAt! - launch.startedAt!, 85466)
+    assert.deepEqual(launch.tokens, {
+      input: 2,
+      output: 816,
+      reasoning: 0,
+      cacheRead: 44648,
+      cacheWrite: 344,
+    })
   })
 
-  it("keeps sub-agent steps out of the parent unit's top level", () => {
-    const unit = reduceTranscript(lines).units[0]!
-    const topLevelReplies = unit.steps
-      .filter((s) => s.type === "model-call")
-      .flatMap((s) => s.children)
-      .map((c) => c.content)
-    assert.ok(!topLevelReplies.includes("Found the rates."))
+  it("summarizes the run the transcript does not contain", () => {
+    const launch = flat(reduceTranscript(lines).units[0]!.steps).find((n) => n.subtask)!
+    assert.equal(launch.children.length, 1)
+    assert.equal(launch.children[0]!.label, "claude-opus-5 · 9 tool calls")
+    assert.equal(launch.content, "Merge complete.")
+  })
+
+  it("adds no tool-result child under a launch node", () => {
+    const launch = flat(reduceTranscript(lines).units[0]!.steps).find((n) => n.subtask)!
+    assert.ok(!launch.children.some((c) => c.type === "tool-result"))
   })
 })

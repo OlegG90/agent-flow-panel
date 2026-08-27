@@ -45,7 +45,7 @@ Claude Code exposes no plugin event API, so this adapter is **pull, not push**: 
 - `session-source.ts` — `encodeProjectDir` (every char outside `[a-zA-Z0-9-]` → `-`, verified against every project directory on disk), newest-transcript discovery, and an `fs.watch` that re-resolves when a new session file appears. Re-reduces the whole file (~17ms on 2.8MB) rather than tailing.
 - `mcp-server.ts` — `McpServer` over stdio registering `flow_open`/`flow_panel`/`flow_tree`.
 
-Sub-agents (`isSidechain` + `parentUuid`) are handled but **unverified**: no available transcript contained a sidechain record.
+**Sub-agent internals are not in the transcript.** Verified by running one: the file gains the `Agent` launch and its result, and nothing in between — no `isSidechain` records are written. The launch node therefore shows the brief, the returned report, and the run summary the result carries (`agentType`, `resolvedModel`, `totalDurationMs`, `usage`, `totalToolUseCount`). The tool is named `Agent` in Claude Code 2.x; `Task` is still matched for older transcripts.
 
 ### Pi / omp (`adapters/pi/`)
 
