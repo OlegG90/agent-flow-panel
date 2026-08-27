@@ -20,7 +20,7 @@ and were verified against the `dev` branch / published packages, not against the
 |---|---|
 | `opencode --version` | `1.18.16` |
 | `npm ls -g opencode-ai` | not installed (npm global is empty) |
-| `where.exe opencode` | `C:\Users\OlegG\AppData\Local\Microsoft\WinGet\Packages\SST.opencode_Microsoft.Winget.Source_8wekyb3d8bbwe\opencode.exe` (installed via WinGet) |
+| `where.exe opencode` | `C:\Users\<you>\AppData\Local\Microsoft\WinGet\Packages\SST.opencode_Microsoft.Winget.Source_8wekyb3d8bbwe\opencode.exe` (installed via WinGet) |
 | `~/.config/opencode/` | exists (contains `opencode.jsonc`, `package.json`, `skills/`, `node_modules/`) |
 | `~/.local/share/opencode/` | exists (contains `opencode.db`, `opencode.db-shm`, `opencode.db-wal`, `auth.json`, `log/`, `repos/`, `snapshot/`, `storage/`, `tool-output/`) |
 | `~/.cache/opencode/` | exists (`bin/rg.exe`, `packages/`, `models.json`) |
