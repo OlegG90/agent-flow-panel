@@ -48,7 +48,11 @@ function objectField(value: unknown, key: string): Record<string, unknown> | und
 }
 
 export default function piExtension(pi: ExtensionAPI): void {
-  console.log(`[flow-panel] v${VERSION} loaded`)
+  // Which build Pi actually loaded (dist bundle vs src entry) is the first
+  // thing worth knowing when the panel misbehaves — but not on every start.
+  if (process.env["FLOW_PANEL_DEBUG"]) {
+    console.log(`[flow-panel] v${VERSION} loaded`)
+  }
   const tracker = new PiSessionTracker()
   const panelServer = createPanelServer({
     getTree: () => tracker.tree(),
