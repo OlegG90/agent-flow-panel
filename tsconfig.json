@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022"],
+    // DOM is here for the panel-client behaviour tests, which drive the real
+    // page in jsdom; nothing under src/ outside those tests may use it.
+    "lib": ["ES2022", "DOM"],
     "types": ["node"],
     "strict": true,
     "noEmit": true,
