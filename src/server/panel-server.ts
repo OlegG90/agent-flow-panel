@@ -1,9 +1,17 @@
 import http from "node:http"
+import { randomBytes, timingSafeEqual } from "node:crypto"
 import type { FlowTree } from "../flow/types.ts"
 import { EVENTS_PATH, renderFlowHtml, renderPanelHtml } from "../flow/render.ts"
 
 function sseData(data: string): string {
   return `data: ${data}\n\n`
+}
+
+function sameToken(candidate: string | null, expected: string): boolean {
+  if (candidate === null || candidate.length !== expected.length) {
+    return false
+  }
+  return timingSafeEqual(Buffer.from(candidate), Buffer.from(expected))
 }
 
 export interface PanelServerDeps {
@@ -12,16 +20,26 @@ export interface PanelServerDeps {
 
 export interface PanelServer {
   start(): Promise<void>
-  url(): string
+  /** Absolute URL of a panel route, carrying the access token. */
+  url(path?: string): string
   publish(): void
   close(): Promise<void>
 }
 
 export function createPanelServer(deps: PanelServerDeps): PanelServer {
   let boundPort = 0
+  // The panel exposes the full session transcript. Binding to loopback keeps
+  // it off the network, but every local process shares loopback — so the URL
+  // handed to the browser carries a per-run token that requests must repeat.
+  const token = randomBytes(16).toString("hex")
   const clients = new Set<http.ServerResponse>()
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "127.0.0.1"}`)
+    if (!sameToken(url.searchParams.get("t"), token)) {
+      res.writeHead(401, { "content-type": "text/plain; charset=utf-8" })
+      res.end("unauthorized")
+      return
+    }
     if (url.pathname === "/") {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
       res.end(renderPanelHtml(deps.getTree()))
@@ -65,8 +83,8 @@ export function createPanelServer(deps: PanelServerDeps): PanelServer {
         boundPort = address.port
       }
     },
-    url(): string {
-      return `http://127.0.0.1:${boundPort}/`
+    url(path = ""): string {
+      return `http://127.0.0.1:${boundPort}/${path}?t=${token}`
     },
     publish(): void {
       if (clients.size === 0) {

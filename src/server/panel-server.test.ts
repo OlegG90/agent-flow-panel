@@ -61,7 +61,7 @@ describe("panel server", () => {
     await panel.start()
     t.after(() => panel.close())
 
-    const response = await fetch(`${panel.url()}data`)
+    const response = await fetch(panel.url("data"))
     assert.equal(response.status, 200)
     assert.match(response.headers.get("content-type") ?? "", /application\/json/)
     const body = (await response.json()) as FlowTree
@@ -102,8 +102,39 @@ describe("panel server", () => {
     await panel.start()
     t.after(() => panel.close())
 
-    const response = await fetch(`${panel.url()}nope`)
+    const response = await fetch(panel.url("nope"))
     assert.equal(response.status, 404)
+  })
+
+  it("rejects requests without the access token", async (t) => {
+    const panel = createPanelServer({ getTree: () => tree })
+    await panel.start()
+    t.after(() => panel.close())
+
+    const base = new URL(panel.url())
+    for (const path of ["/", "/data", "/events"]) {
+      const noToken = await fetch(new URL(path, base.origin))
+      assert.equal(noToken.status, 401)
+      const wrongToken = await fetch(new URL(`${path}?t=deadbeef`, base.origin))
+      assert.equal(wrongToken.status, 401)
+    }
+  })
+
+  it("issues a distinct token per panel server", async (t) => {
+    const first = createPanelServer({ getTree: () => tree })
+    const second = createPanelServer({ getTree: () => tree })
+    await first.start()
+    await second.start()
+    t.after(() => Promise.all([first.close(), second.close()]))
+
+    const firstToken = new URL(first.url()).searchParams.get("t")
+    const secondToken = new URL(second.url()).searchParams.get("t")
+    assert.ok(firstToken)
+    assert.notEqual(firstToken, secondToken)
+
+    const crossed = new URL(second.url())
+    crossed.searchParams.set("t", firstToken)
+    assert.equal((await fetch(crossed)).status, 401)
   })
 
   it("streams tree updates over SSE after publish", async (t) => {
@@ -113,7 +144,7 @@ describe("panel server", () => {
     t.after(() => panel.close())
 
     const controller = new AbortController()
-    const response = await fetch(`${panel.url()}events`, { signal: controller.signal })
+    const response = await fetch(panel.url("events"), { signal: controller.signal })
     assert.equal(response.status, 200)
     assert.match(response.headers.get("content-type") ?? "", /text\/event-stream/)
     const reader = response.body!.getReader()
@@ -151,7 +182,7 @@ describe("panel server", () => {
     t.after(() => panel.close())
 
     const controller = new AbortController()
-    const response = await fetch(`${panel.url()}events`, { signal: controller.signal })
+    const response = await fetch(panel.url("events"), { signal: controller.signal })
     const reader = response.body!.getReader()
     const decoder = new TextDecoder()
     const acc = await readSseUntil(reader, controller, decoder, "Hello")

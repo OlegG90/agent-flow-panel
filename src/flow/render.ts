@@ -323,7 +323,8 @@ const CLIENT_SCRIPT = `
     detailsToggle.textContent = "Hide details";
     showDetails(step);
   };
-  const source = new EventSource("${EVENTS_PATH}");
+  // Carry the page's access token (?t=…) over to the event stream.
+  const source = new EventSource("${EVENTS_PATH}" + window.location.search);
   source.onmessage = (event) => { flow.innerHTML = event.data; applyCollapsed(); applySelected(); };
   flow.addEventListener("click", (event) => {
     const toggle = event.target.closest(".step-toggle");

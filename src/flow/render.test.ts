@@ -113,7 +113,7 @@ describe("renderPanelHtml", () => {
   it("embeds an SSE client script and a flow container id", () => {
     const html = renderPanelHtml(tree)
     assert.ok(html.includes('id="flow"'))
-    assert.ok(html.includes('new EventSource("/events")'))
+    assert.ok(html.includes('new EventSource("/events" + window.location.search)'))
   })
 
   it("renders a two-zone layout with a 60/40 split and a details pane", () => {
