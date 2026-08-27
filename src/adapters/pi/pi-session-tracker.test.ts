@@ -151,12 +151,22 @@ describe("PiSessionTracker", () => {
     assert.ok(summary.content.includes("agent5"))
   })
 
-  it("graftChildIntoParent is alias for registerChild", () => {
+  it("defaults the fork ordering key when the event carries no timestamp", () => {
     const tracker = new PiSessionTracker()
     parentWithLaunch(tracker, "a")
-    tracker.graftChildIntoParent("a", "b")
-    childSession(tracker, "b", "via alias")
+    tracker.registerChild("a", "b")
+    childSession(tracker, "b", "no timestamp")
     const launch = tracker.tree("a").units[0]!.steps[0]!.children[0]!.children[0]!
-    assert.equal(launch.children[0]!.content, "via alias")
+    assert.equal(launch.children[0]!.content, "no timestamp")
+  })
+
+  it("ignores a duplicate registration of the same child", () => {
+    const tracker = new PiSessionTracker()
+    parentWithLaunch(tracker, "a")
+    tracker.registerChild("a", "b", 1)
+    tracker.registerChild("a", "b", 1)
+    childSession(tracker, "b", "grafted once")
+    const launch = tracker.tree("a").units[0]!.steps[0]!.children[0]!.children[0]!
+    assert.equal(launch.children.filter((c) => c.content === "grafted once").length, 1)
   })
 })
