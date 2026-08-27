@@ -561,6 +561,74 @@ describe("renderTree", () => {
     assert.ok(text.includes("[completed] List files"))
   })
 
+  it("keeps the newest units and says what it dropped when over budget", () => {
+    const many: FlowTree = {
+      sessionID: "s1",
+      units: Array.from({ length: 40 }, (_, i) => ({
+        id: `u${i}`,
+        request: { ...tree.units[0]!.request, id: `ur-${i}`, content: `request number ${i}` },
+        steps: tree.units[0]!.steps,
+        plan: [],
+      })),
+    }
+    const text = renderTree(many, { maxChars: 2000 })
+    assert.ok(text.length <= 2400, `stayed near budget, got ${text.length}`)
+    assert.match(text, /earlier Units of Work omitted of 40/)
+    assert.ok(text.includes("request number 39"), "the newest unit survives")
+    assert.ok(!text.includes("request number 0"), "the oldest is dropped")
+  })
+
+  it("renders everything when it fits", () => {
+    const text = renderTree(tree)
+    assert.ok(!text.includes("omitted"))
+    assert.ok(text.includes("List the files"))
+  })
+
+  it("truncates a single oversized unit instead of showing nothing", () => {
+    // A unit grows by accumulating steps: per-node content is already capped
+    // at 80 chars by `truncate`, so length comes from the number of rows.
+    const huge: FlowTree = {
+      sessionID: "s1",
+      units: [
+        {
+          id: "u1",
+          request: tree.units[0]!.request,
+          steps: Array.from({ length: 200 }, (_, i) => ({
+            id: `tc-${i}`,
+            type: "tool-call" as const,
+            label: `Tool: bash · step number ${i}`,
+            state: "completed" as const,
+            content: "output line",
+            children: [],
+          })),
+          plan: [],
+        },
+      ],
+    }
+    const full = renderTree(huge, { maxChars: 1_000_000 })
+    assert.ok(full.length > 500, "the unit really is oversized")
+    const text = renderTree(huge, { maxChars: 500 })
+    assert.match(text, /unit truncated/)
+    assert.ok(text.length < 700, `got ${text.length}`)
+    assert.ok(text.includes("step number 0"), "shows the head rather than nothing")
+  })
+
+  it("honours an explicit unit cap", () => {
+    const many: FlowTree = {
+      sessionID: "s1",
+      units: Array.from({ length: 6 }, (_, i) => ({
+        id: `u${i}`,
+        request: { ...tree.units[0]!.request, id: `ur-${i}`, content: `req ${i}` },
+        steps: [],
+        plan: [],
+      })),
+    }
+    const text = renderTree(many, { maxUnits: 2 })
+    assert.match(text, /4 earlier Units of Work omitted of 6/)
+    assert.ok(text.includes("req 5") && text.includes("req 4"))
+    assert.ok(!text.includes("req 3"))
+  })
+
   it("returns an empty-state message for an empty tree", () => {
     assert.equal(renderTree({ sessionID: "s1", units: [] }), "(no flow recorded)")
   })

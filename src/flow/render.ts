@@ -332,13 +332,55 @@ function unitHtml(unit: UnitOfWork, index: number, leaf = htmlLeaf): string {
   ].join("")
 }
 
-export function renderTree(tree: FlowTree): string {
-  const lines: string[] = []
-  for (const [index, unit] of tree.units.entries()) {
-    lines.push(unitText(unit, index))
-    lines.push("")
+/**
+ * The text tree goes into a chat message, which has a size limit the flow
+ * does not. A 38-unit session rendered 218KB and was rejected outright —
+ * unusable exactly where it is most wanted. So the newest units are kept and
+ * older ones dropped, since the recent end is what a reader is asking about;
+ * the panel remains the place to see everything.
+ */
+export const DEFAULT_TREE_MAX_CHARS = 30_000
+
+export interface TextTreeOptions {
+  maxChars?: number
+  maxUnits?: number
+}
+
+export function renderTree(tree: FlowTree, options: TextTreeOptions = {}): string {
+  if (tree.units.length === 0) {
+    return "(no flow recorded)"
   }
-  return lines.join("\n").trimEnd() || "(no flow recorded)"
+  const maxChars = options.maxChars ?? DEFAULT_TREE_MAX_CHARS
+  const maxUnits = options.maxUnits ?? tree.units.length
+
+  const rendered = tree.units.map((unit, index) => unitText(unit, index))
+  const kept: string[] = []
+  let used = 0
+  for (let i = rendered.length - 1; i >= 0; i--) {
+    let text = rendered[i]!
+    if (kept.length >= maxUnits) {
+      break
+    }
+    // A single unit can exceed the budget on its own; show its head rather
+    // than nothing, so the newest work is never invisible.
+    if (kept.length === 0 && text.length > maxChars) {
+      text = `${text.slice(0, maxChars)}\n  … unit truncated`
+    } else if (used + text.length > maxChars) {
+      break
+    }
+    used += text.length + 1
+    kept.unshift(text)
+  }
+
+  const omitted = tree.units.length - kept.length
+  const header =
+    omitted > 0
+      ? [
+          `… ${omitted} earlier ${omitted === 1 ? "Unit" : "Units"} of Work omitted of ${tree.units.length} — open the panel for the full flow.`,
+          "",
+        ]
+      : []
+  return [...header, ...kept].join("\n").trimEnd()
 }
 
 export function renderFlowHtml(tree: FlowTree, leaf = htmlLeaf): string {
