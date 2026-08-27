@@ -100,7 +100,7 @@ omp -e C:/path/to/dist/extension.js -p "echo hi" 2>&1 | findstr flow
 ```sh
 npm install
 npm run build          # → dist/server.js + dist/extension.js
-npm test               # node --test src/**/*.test.ts (148 tests)
+npm test               # node --test src/**/*.test.ts (163 tests)
 npm run typecheck
 npm run lint
 npm run panel:fixture  # → docs/previews/panel-preview-*.html
