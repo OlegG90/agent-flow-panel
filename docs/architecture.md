@@ -73,7 +73,7 @@ Empty turns without content/tools → `finishTurn` converts `model-call` to `orc
 
 Pi events carry no timestamps, so `PiFlowStore(sessionID, now = Date.now)` takes an injectable clock and stamps the wall clock it observes; tokens/cost are unavailable on this platform.
 
-**What omp actually provides, measured.** Running `omp -e dist/extension.js` (omp 18.0.8) confirms the extension loads — it announces itself under `FLOW_PANEL_DEBUG`. Driving the built bundle through the documented event sequence then shows what the adapter can and cannot render: **duration only**, no token counts and no cost, because Pi's events carry neither. `oh_my_pi_delegate_task` is recognised as a sub-agent launch, and a turn with no text, reasoning or tools becomes `Orchestration`.
+**What omp actually provides, measured.** Running `omp -e dist/pi/extension.js` (omp 18.0.8) confirms the extension loads — it announces itself under `FLOW_PANEL_DEBUG`. Driving the built bundle through the documented event sequence then shows what the adapter can and cannot render: **duration only**, no token counts and no cost, because Pi's events carry neither. `oh_my_pi_delegate_task` is recognised as a sub-agent launch, and a turn with no text, reasoning or tools becomes `Orchestration`.
 
 Note the observation gap: omp's `-p` mode exits as soon as the answer lands, taking the panel with it, and a slash command passed to `-p` reaches the model as ordinary text rather than being dispatched. A live omp panel therefore has to be opened from inside the interactive TUI; it cannot be driven from a script.
 
@@ -82,8 +82,9 @@ Note the observation gap: omp's `-p` mode exits as soon as the answer lands, tak
 ## Build & entry points
 
 - `package.json:exports` → `./server` = `src/server.ts`, `./extension` = `src/extension.ts`, `./mcp` = `src/mcp.ts`
-- `pi.extensions` + `omp.extensions` → `["./dist/extension.js","./src/extension.ts"]` (jiti dev + bundle prod)
-- `npm run build` → `dist/server.js` (OpenCode) + `dist/extension.js` (Pi/omp, `--external:@earendil-works/* --external:@oh-my-pi/*`) + `dist/mcp.js` (Claude Code, MCP SDK inlined)
+- `pi.extensions` + `omp.extensions` → `["./dist/pi/extension.js","./src/extension.ts"]` (jiti dev + bundle prod)
+- `npm run build` → one bundle per agent, each in its own folder: `dist/opencode/server.js`, `dist/pi/extension.js` (`--external:@earendil-works/* --external:@oh-my-pi/*`), `dist/claude/mcp.js` (MCP SDK inlined).
+- The folder is deliberate. Every one of these paths ends up quoted in someone's config, and a line reading `node ./dist/claude/mcp.js` says which agent's flow it will show — which matters because an MCP server registered for one agent is visible to the others.
 - `src/server.ts` — `tracker`+`panelServer` created **per plugin instance** (not per module), `flow_panel` (reset), `flow_open` (keep), `flow_tree` (text). `server:Plugin{ event→tracker.dispatch }`, `server.instance.disposed` → `panelServer.close()`.
 
 See `docs/adr/0001-external-renderer-for-panel.md` (why browser, not TUI), `0002-pi-and-oh-my-pi-adaptation.md` (dual-platform).

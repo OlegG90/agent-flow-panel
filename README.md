@@ -15,15 +15,15 @@ Details: [`docs/concepts.md`](docs/concepts.md) (step types, states), original g
 
 ```sh
 npm install
-npm run build   # → dist/server.js (OpenCode) + dist/extension.js (Pi/omp) + dist/mcp.js (Claude Code)
+npm run build   # → dist/opencode/server.js (OpenCode) + dist/pi/extension.js (Pi/omp) + dist/claude/mcp.js (Claude Code)
 ```
 
 | Agent | How to connect |
 |---|---|
-| **OpenCode** | `opencode.json` → `"plugin": ["./src/server.ts"]` (dev) or `"plugin": ["file:///…/dist/server.js"]` |
-| **Claude Code** | `claude mcp add flow-panel -- node /…/dist/mcp.js` (MCP server, reads the session transcript) |
-| **Pi** | `pi -e C:/path/to/dist/extension.js` or `~/.pi/agent/extensions/` |
-| **omp** | `omp -e C:/path/to/dist/extension.js` (recommended) or `omp plugin link` |
+| **OpenCode** | `opencode.json` → `"plugin": ["./src/server.ts"]` (dev) or `"plugin": ["file:///…/dist/opencode/server.js"]` |
+| **Claude Code** | `claude mcp add flow-panel -- node /…/dist/claude/mcp.js` (MCP server, reads the session transcript) |
+| **Pi** | `pi -e C:/path/to/dist/pi/extension.js` or `~/.pi/agent/extensions/` |
+| **omp** | `omp -e C:/path/to/dist/pi/extension.js` (recommended) or `omp plugin link` |
 
 Full guide: [`docs/installation.md`](docs/installation.md) · Architecture: [`docs/architecture.md`](docs/architecture.md) · Panel: [`docs/panel.md`](docs/panel.md) · ADRs: [`docs/adr/`](docs/adr/) · API research: [`docs/opencode-plugin-system-research.md`](docs/opencode-plugin-system-research.md)
 

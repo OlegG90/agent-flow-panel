@@ -14,21 +14,21 @@
   },
   "pi": {
     "extensions": [
-      "./dist/extension.js",
+      "./dist/pi/extension.js",
       "./src/extension.ts"
     ]
   },
   "omp": {
     "extensions": [
-      "./dist/extension.js",
+      "./dist/pi/extension.js",
       "./src/extension.ts"
     ]
   },
   "scripts": {
     "build": "npm run build:opencode && npm run build:pi && npm run build:claude",
-    "build:opencode": "esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/server.js",
-    "build:pi": "esbuild src/extension.ts --bundle --platform=node --format=esm --outfile=dist/extension.js --external:@earendil-works/* --external:@oh-my-pi/*",
-    "build:claude": "esbuild src/mcp.ts --bundle --platform=node --format=esm --outfile=dist/mcp.js",
+    "build:opencode": "esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/opencode/server.js",
+    "build:pi": "esbuild src/extension.ts --bundle --platform=node --format=esm --outfile=dist/pi/extension.js --external:@earendil-works/* --external:@oh-my-pi/*",
+    "build:claude": "esbuild src/mcp.ts --bundle --platform=node --format=esm --outfile=dist/claude/mcp.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "node --test \"src/**/*.test.ts\"",

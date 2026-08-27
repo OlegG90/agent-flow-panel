@@ -5,8 +5,8 @@ dist/
 err.txt
 out.txt
 
-# Local MCP registration. The path can only be ./dist/mcp.js, which does not
+# Local MCP registration. The path can only be ./dist/claude/mcp.js, which does not
 # exist until the project is built, so shipping it would give a fresh clone an
 # entry that prompts for approval and then fails. Register it yourself:
-#   claude mcp add flow-panel -s project -- node ./dist/mcp.js
+#   claude mcp add flow-panel -s project -- node ./dist/claude/mcp.js
 .mcp.json

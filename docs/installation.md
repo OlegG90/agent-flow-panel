@@ -10,7 +10,7 @@
 
 **From bundle (prod) or global `~/.config/opencode/opencode.jsonc`:**
 ```jsonc
-{ "plugin": ["file:///C:/absolute/path/dist/server.js"] }
+{ "plugin": ["file:///C:/absolute/path/dist/opencode/server.js"] }
 ```
 
 After changes — **restart OpenCode** (config is not hot-reloaded). The plugin provides tools `flow_panel` / `flow_open` / `flow_tree`.
@@ -22,13 +22,13 @@ that reads the session transcript Claude Code already writes to
 `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`.
 
 ```sh
-npm run build   # produces dist/mcp.js
-claude mcp add flow-panel -- node C:/path/to/dist/mcp.js
+npm run build   # produces dist/claude/mcp.js
+claude mcp add flow-panel -- node C:/path/to/dist/claude/mcp.js
 ```
 
 Or per project, in `.mcp.json` next to the code you are working on:
 ```json
-{ "mcpServers": { "flow-panel": { "command": "node", "args": ["C:/path/to/dist/mcp.js"] } } }
+{ "mcpServers": { "flow-panel": { "command": "node", "args": ["C:/path/to/dist/claude/mcp.js"] } } }
 ```
 
 The server provides the same `flow_open` / `flow_panel` / `flow_tree` tools as the
@@ -46,10 +46,10 @@ other adapters. This repository ships `/flow` and `/flow-tree` commands under
 > inside that directory. What actually tells them apart is the labelling: the
 > panel names its agent in the title bar, and the tool descriptions say
 > "Claude Code only" before the call is made. In omp, prefer its own
-> extension (`-e dist/extension.js`), which shows omp's own flow.
+> extension (`-e dist/pi/extension.js`), which shows omp's own flow.
 
 It deliberately does **not** ship a `.mcp.json`: such a file could only point at
-`./dist/mcp.js`, which does not exist until you build, so a fresh clone would get an
+`./dist/claude/mcp.js`, which does not exist until you build, so a fresh clone would get an
 entry that prompts for approval and then fails — and registering the server at user
 scope as well would put the same name in two scopes, which starts two copies of it.
 
@@ -76,14 +76,14 @@ Two things follow from reading a file rather than a stream:
 **One-off (no install):**
 ```sh
 npm run build
-pi -e C:/path/to/dist/extension.js
+pi -e C:/path/to/dist/pi/extension.js
 # single prompt:
-pi -e C:/path/to/dist/extension.js -p "hello"
+pi -e C:/path/to/dist/pi/extension.js -p "hello"
 ```
 
-**Global:** copy `dist/extension.js` to `~/.pi/agent/extensions/` or add to `~/.pi/agent/settings.json`:
+**Global:** copy `dist/pi/extension.js` to `~/.pi/agent/extensions/` or add to `~/.pi/agent/settings.json`:
 ```json
-{ "extensions": ["C:/path/to/dist/extension.js"] }
+{ "extensions": ["C:/path/to/dist/pi/extension.js"] }
 ```
 
 ## oh-my-pi / omp (can1357/oh-my-pi)
@@ -93,8 +93,8 @@ pi -e C:/path/to/dist/extension.js -p "hello"
 **A — one-off (recommended):**
 ```sh
 npm run build
-omp -e C:/path/to/dist/extension.js
-omp -e C:/path/to/dist/extension.js -p "hello"
+omp -e C:/path/to/dist/pi/extension.js
+omp -e C:/path/to/dist/pi/extension.js -p "hello"
 ```
 Inside TUI: `/flow` (keep), `/flow-reset` (reset from scratch), `/flow_tree` or tools `flow_panel`/`flow_open`/`flow_tree`.
 
@@ -104,12 +104,12 @@ omp plugin link "C:/path/to/project"  # symlink into ~/.omp/plugins
 # if EPERM:
 # xcopy /E /I dist C:\Users\<you>\.omp\plugins\flow-panel\dist
 # or manually add to ~/.omp/agent/config.yml:
-# extensions: ["C:/path/to/dist/extension.js"]
+# extensions: ["C:/path/to/dist/pi/extension.js"]
 ```
 
 Check:
 ```sh
-omp -e C:/path/to/dist/extension.js -p "echo hi" 2>&1 | findstr flow
+omp -e C:/path/to/dist/pi/extension.js -p "echo hi" 2>&1 | findstr flow
 # in TUI: /help should list /flow, /flow-reset
 ```
 
@@ -123,7 +123,7 @@ still load them.
 
 ```sh
 npm install
-npm run build          # → dist/server.js + dist/mcp.js + dist/extension.js
+npm run build          # → dist/opencode/server.js + dist/claude/mcp.js + dist/pi/extension.js
 npm test               # node --test src/**/*.test.ts (179 tests)
 npm run typecheck
 npm run lint
