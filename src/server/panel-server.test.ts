@@ -97,6 +97,64 @@ describe("panel server", () => {
     assert.ok(html.includes("Hello"))
   })
 
+  it("serves one step's full content from the node endpoint", async (t) => {
+    const detailed: FlowTree = {
+      sessionID: "s1",
+      units: [
+        {
+          id: "m1",
+          request: tree.units[0]!.request,
+          steps: [
+            {
+              id: "mc-m2",
+              type: "model-call",
+              label: "Model call",
+              state: "completed",
+              content: "",
+              children: [
+                {
+                  id: "mr-m2",
+                  type: "model-reply",
+                  label: "Model reply",
+                  state: "completed",
+                  content: "the full reply text",
+                  reasoning: "the full reasoning",
+                  children: [],
+                },
+              ],
+            },
+          ],
+          plan: [],
+        },
+      ],
+    }
+    const panel = createPanelServer({ getTree: () => detailed })
+    await panel.start()
+    t.after(() => panel.close())
+
+    const url = new URL(panel.url("node"))
+    url.searchParams.set("id", "mc-m2")
+    const response = await fetch(url)
+    assert.equal(response.status, 200)
+    const body = (await response.json()) as { content: string; reasoning: string; label: string }
+    // Turn collapsing puts the reply's content on the ModelCall id, and the
+    // endpoint has to agree with what the panel rendered.
+    assert.equal(body.content, "the full reply text")
+    assert.equal(body.reasoning, "the full reasoning")
+    assert.equal(body.label, "Model call")
+  })
+
+  it("returns 404 from the node endpoint for an unknown id", async (t) => {
+    const panel = createPanelServer({ getTree: () => tree })
+    await panel.start()
+    t.after(() => panel.close())
+
+    const url = new URL(panel.url("node"))
+    url.searchParams.set("id", "nope")
+    assert.equal((await fetch(url)).status, 404)
+    assert.equal((await fetch(panel.url("node"))).status, 404)
+  })
+
   it("returns 404 for unknown routes", async (t) => {
     const panel = createPanelServer({ getTree: () => tree })
     await panel.start()

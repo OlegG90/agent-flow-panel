@@ -140,11 +140,40 @@ describe("renderPanelHtml", () => {
     assert.ok(html.includes(".layout.details-hidden .details { display: none; }"))
   })
 
-  it("embeds full content and reasoning as data attributes for the details pane", () => {
+  it("keeps full content out of the frame and flags nodes that have detail", () => {
+    const html = renderFlowHtml(tree)
+    assert.ok(!html.includes("data-content="), "content is fetched per node instead")
+    assert.ok(!html.includes("data-reasoning="))
+    assert.ok(html.includes('data-detail="1"'), "nodes with detail are marked for fetching")
+    // The scannable preview stays inline.
+    assert.ok(html.includes('<span class="step-content">Here are the files</span>'))
+  })
+
+  it("marks a node without content or reasoning as having no detail", () => {
+    const bare: FlowTree = {
+      sessionID: "s1",
+      units: [
+        {
+          id: "m1",
+          request: {
+            id: "ur-m1",
+            type: "user-request",
+            label: "User request",
+            state: "completed",
+            content: "",
+            children: [],
+          },
+          steps: [],
+          plan: [],
+        },
+      ],
+    }
+    assert.ok(!renderFlowHtml(bare).includes("data-detail"))
+  })
+
+  it("fetches details from the node endpoint carrying the token", () => {
     const html = renderPanelHtml(tree)
-    assert.ok(html.includes('data-content="Here are the files"'))
-    assert.ok(html.includes('data-reasoning="User asked for a listing"'))
-    assert.ok(html.includes("boom &lt;script&gt;alert(1)&lt;/script&gt;"))
+    assert.ok(html.includes('fetch("/node" + window.location.search + "&id=" + encodeURIComponent(id))'))
   })
 
   it("keeps data attributes on a single line for SSE transport", () => {
@@ -196,8 +225,8 @@ describe("turn collapsing", () => {
     const html = renderFlowHtml(tree)
     assert.ok(!html.includes("step--model-reply"), "the reply gets no row of its own")
     // The reply's text and reasoning move onto the call's row.
-    assert.ok(html.includes('data-content="Here are the files"'))
-    assert.ok(html.includes('data-reasoning="User asked for a listing"'))
+    assert.match(html, /step--model-call[^>]*>.*?<span class="step-content">Here are the files</)
+    assert.match(html, /step--model-call[^>]*>.*?User asked for a listing/)
     // The reply's tool call becomes a direct child of the collapsed row.
     assert.match(html, /step--model-call[^>]*>.*?<ol class="steps steps--nested"><li class="step step--tool-call/)
   })

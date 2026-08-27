@@ -3,6 +3,7 @@ import { VERSION } from "../version.ts"
 
 export const FLOW_CONTAINER_ID = "flow"
 export const EVENTS_PATH = "/events"
+export const NODE_PATH = "/node"
 
 const STATE_LABEL: Record<StepNode["state"], string> = {
   pending: "pending",
@@ -107,9 +108,6 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;")
 }
 
-function attrEscape(value: string): string {
-  return escapeHtml(value).replaceAll("\n", "&#10;")
-}
 
 /**
  * A ModelCall always wraps exactly one ModelReply and carries no content of
@@ -136,6 +134,36 @@ function collapseTurn(node: StepNode): StepNode {
     reasoning: reply.reasoning ?? node.reasoning,
     children: reply.children,
   }
+}
+
+/**
+ * Look a node up in the tree as the panel presents it. Turn collapsing moves
+ * the reply's content onto the ModelCall's id, so the details endpoint has to
+ * search the collapsed shape or it would answer with the wrong (empty) node.
+ */
+export function findStep(tree: FlowTree, id: string): StepNode | undefined {
+  const search = (node: StepNode): StepNode | undefined => {
+    if (node.id === id) {
+      return node
+    }
+    for (const child of node.children) {
+      const hit = search(child)
+      if (hit) {
+        return hit
+      }
+    }
+    return undefined
+  }
+  for (const unit of tree.units) {
+    const hit = search(unit.request) ?? unit.steps.map(collapseTurn).reduce<StepNode | undefined>(
+      (found, step) => found ?? search(step),
+      undefined,
+    )
+    if (hit) {
+      return hit
+    }
+  }
+  return undefined
 }
 
 interface WalkContext {
@@ -169,10 +197,11 @@ function htmlLeaf({ node, inner }: WalkContext): string {
   const subtaskClass = node.subtask ? " step--subtask" : ""
   const toggle = inner ? '<button class="step-toggle" type="button" aria-label="Toggle">▾</button>' : ""
   const badge = node.subtask ? '<span class="step-badge">sub-agent</span>' : ""
-  const contentAttr = node.content.length > 0 ? ` data-content="${attrEscape(node.content)}"` : ""
-  const reasoningAttr = node.reasoning ? ` data-reasoning="${attrEscape(node.reasoning)}"` : ""
+  // Full content stays out of the frame and is fetched per node on demand:
+  // inlining it re-sent the entire transcript on every update.
+  const hasDetail = node.content.length > 0 || node.reasoning ? ' data-detail="1"' : ""
   const parts = [
-    `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}${hasChildren}${subtaskClass}" data-id="${escapeHtml(node.id)}" data-type="${node.type}" data-state="${node.state}"${contentAttr}${reasoningAttr}>`,
+    `<li class="step step--${node.type} step--${STATE_LABEL[node.state]}${hasChildren}${subtaskClass}" data-id="${escapeHtml(node.id)}" data-type="${node.type}" data-state="${node.state}"${hasDetail}>`,
     toggle,
     `<span class="step-label">${escapeHtml(node.label)}</span>`,
     badge,
@@ -395,6 +424,8 @@ const CLIENT_SCRIPT = `
   if (!flow || !details || !layout || !detailsToggle) return;
   const collapsed = new Set();
   let selectedId = null;
+  let loadedFor = null;
+  let loadedState = null;
   const esc = (value) => String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -410,21 +441,20 @@ const CLIENT_SCRIPT = `
   const emptyDetails = () => {
     details.innerHTML = '<p class="details-empty">Select a step to see its details.</p>';
   };
-  const showDetails = (step) => {
-    const id = step.getAttribute("data-id") || "";
+  const renderDetails = (step, node) => {
     const type = step.getAttribute("data-type") || "";
     const state = step.getAttribute("data-state") || "";
     const labelEl = step.querySelector(".step-label");
-    const label = labelEl ? labelEl.textContent : "";
-    const content = step.getAttribute("data-content") || "";
-    const reasoning = step.getAttribute("data-reasoning") || "";
+    const label = node && node.label ? node.label : labelEl ? labelEl.textContent : "";
+    const content = node ? node.content || "" : "";
+    const reasoning = node ? node.reasoning || "" : "";
     const header =
       '<div class="details-header">' +
       '<span class="details-type step--' + esc(type) + '">' + esc(type) + "</span>" +
       '<span class="details-state">' + esc(state) + "</span></div>";
     const body =
       '<div class="details-label">' + esc(label) + "</div>" +
-      '<div class="details-id">' + esc(id) + "</div>";
+      '<div class="details-id">' + esc(step.getAttribute("data-id") || "") + "</div>";
     const contentSection = content
       ? '<div class="details-section"><h3>Content</h3><div class="details-content">' + esc(content) + "</div></div>"
       : "";
@@ -433,16 +463,40 @@ const CLIENT_SCRIPT = `
       : "";
     details.innerHTML = header + body + contentSection + reasoningSection;
   };
+  // Content is no longer in the frame; fetch the selected node on demand.
+  const loadDetails = (step) => {
+    const id = step.getAttribute("data-id");
+    if (!id) return;
+    loadedFor = id;
+    loadedState = step.getAttribute("data-state");
+    if (step.getAttribute("data-detail") !== "1") {
+      renderDetails(step, null);
+      return;
+    }
+    fetch("${NODE_PATH}" + window.location.search + "&id=" + encodeURIComponent(id))
+      .then((response) => (response.ok ? response.json() : null))
+      .then((node) => {
+        if (selectedId === id) renderDetails(step, node);
+      })
+      .catch(() => {
+        if (selectedId === id) renderDetails(step, null);
+      });
+  };
   const applySelected = () => {
     if (!selectedId) return;
     const step = flow.querySelector('[data-id="' + selectedId + '"]');
     if (!step) {
       selectedId = null;
+      loadedFor = null;
       emptyDetails();
       return;
     }
     step.classList.add("step--selected");
-    showDetails(step);
+    // Refetch only when the step moved on: a running tool keeps growing, a
+    // finished one does not, and refetching per frame would undo the win.
+    if (loadedFor !== selectedId || loadedState !== step.getAttribute("data-state")) {
+      loadDetails(step);
+    }
   };
   const select = (step) => {
     const id = step.getAttribute("data-id");
@@ -450,6 +504,7 @@ const CLIENT_SCRIPT = `
     if (previous) previous.classList.remove("step--selected");
     if (selectedId === id) {
       selectedId = null;
+      loadedFor = null;
       emptyDetails();
       return;
     }
@@ -457,7 +512,7 @@ const CLIENT_SCRIPT = `
     step.classList.add("step--selected");
     layout.classList.remove("details-hidden");
     detailsToggle.textContent = "Hide details";
-    showDetails(step);
+    loadDetails(step);
   };
   // Carry the page's access token (?t=…) over to the event stream.
   const source = new EventSource("${EVENTS_PATH}" + window.location.search);

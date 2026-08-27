@@ -1,7 +1,7 @@
 import http from "node:http"
 import { randomBytes, timingSafeEqual } from "node:crypto"
 import type { FlowTree } from "../flow/types.ts"
-import { EVENTS_PATH, renderFlowHtml, renderPanelHtml } from "../flow/render.ts"
+import { EVENTS_PATH, NODE_PATH, findStep, renderFlowHtml, renderPanelHtml } from "../flow/render.ts"
 
 function sseData(data: string): string {
   return `data: ${data}\n\n`
@@ -58,6 +58,27 @@ export function createPanelServer(deps: PanelServerDeps): PanelServer {
     if (url.pathname === "/data") {
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify(deps.getTree()))
+      return
+    }
+    if (url.pathname === NODE_PATH) {
+      const id = url.searchParams.get("id")
+      const node = id ? findStep(deps.getTree(), id) : undefined
+      if (!node) {
+        res.writeHead(404, { "content-type": "text/plain; charset=utf-8" })
+        res.end("no such step")
+        return
+      }
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+      res.end(
+        JSON.stringify({
+          id: node.id,
+          type: node.type,
+          state: node.state,
+          label: node.label,
+          content: node.content,
+          reasoning: node.reasoning ?? "",
+        }),
+      )
       return
     }
     if (url.pathname === EVENTS_PATH) {
