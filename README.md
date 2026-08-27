@@ -38,7 +38,7 @@ Panel: `http://127.0.0.1:<port>/?t=<token>` (`/` HTML, `/data` JSON, `/node?id=`
 ## Development
 
 ```sh
-npm test            # 179 tests (node --test)
+npm test            # 188 tests (node --test)
 npm run typecheck
 npm run lint
 npm run panel:fixture  # → docs/previews/panel-preview-*.html
