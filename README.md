@@ -21,7 +21,7 @@ npm run build   # → dist/opencode/server.js (OpenCode) + dist/pi/extension.js 
 | Agent | How to connect |
 |---|---|
 | **OpenCode** | `opencode.json` → `"plugin": ["./src/server.ts"]` (dev) or `"plugin": ["file:///…/dist/opencode/server.js"]` |
-| **Claude Code** | `claude mcp add flow-panel -- node /…/dist/claude/mcp.js` (MCP server, reads the session transcript) |
+| **Claude Code** | `claude mcp add flow-panel -s local -- node /…/dist/claude/mcp.js` (MCP server, reads the session transcript) |
 | **Pi** | `pi -e C:/path/to/dist/pi/extension.js` or `~/.pi/agent/extensions/` |
 | **omp** | `omp -e C:/path/to/dist/pi/extension.js` (recommended) or `omp plugin link` |
 

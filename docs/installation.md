@@ -23,7 +23,7 @@ that reads the session transcript Claude Code already writes to
 
 ```sh
 npm run build   # produces dist/claude/mcp.js
-claude mcp add flow-panel -- node C:/path/to/dist/claude/mcp.js
+claude mcp add flow-panel -s local -- node C:/path/to/dist/claude/mcp.js
 ```
 
 Or per project, in `.mcp.json` next to the code you are working on:
@@ -35,18 +35,23 @@ The server provides the same `flow_open` / `flow_panel` / `flow_tree` tools as t
 other adapters. This repository ships `/flow` and `/flow-tree` commands under
 `.claude/commands/`, which call them.
 
-> **Other MCP clients will see this server.** oh-my-pi reads Claude Code's
-> config — its user config for skills, commands and MCP servers, and project
-> `.mcp.json` too (`mcp.enableProjectConfig`). Since this server reads
-> `~/.claude/projects`, `flow_open` called from omp opens a **Claude Code**
-> panel rather than omp's. Nothing is broken; it is the wrong agent's flow.
+> **Use `-s local`, and here is why it matters.** oh-my-pi reads Claude Code's
+> configuration, and this server reads `~/.claude/projects` — so a `flow_open`
+> called from omp opens a **Claude Code** panel rather than omp's. Nothing
+> breaks; it is simply the wrong agent's flow, silently.
 >
-> Registering per project (`-s project`) narrows the blast radius to one
-> directory instead of the whole machine, but does **not** hide it from omp
-> inside that directory. What actually tells them apart is the labelling: the
-> panel names its agent in the title bar, and the tool descriptions say
-> "Claude Code only" before the call is made. In omp, prefer its own
-> extension (`-e dist/pi/extension.js`), which shows omp's own flow.
+> The scope decides who else can see it. Measured by starting omp in the
+> project and watching whether it spawns this server:
+>
+> | Scope | Stored in | Claude Code | omp |
+> |---|---|---|---|
+> | `user` | `~/.claude.json` → `mcpServers` | sees it | **sees it everywhere** |
+> | `project` | `.mcp.json` in the project root | sees it | **sees it in that directory** (`mcp.enableProjectConfig`) |
+> | `local` | `~/.claude.json` → `projects[path].mcpServers` | sees it | **does not see it** |
+>
+> omp walks the top-level `mcpServers` and any `.mcp.json`, but not the nested
+> `projects[path]` structure, which is Claude Code's own. For omp's flow, use
+> its extension: `omp -e dist/pi/extension.js`.
 
 It deliberately does **not** ship a `.mcp.json`: such a file could only point at
 `./dist/claude/mcp.js`, which does not exist until you build, so a fresh clone would get an
