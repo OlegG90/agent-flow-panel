@@ -269,6 +269,14 @@ describe("reduceTranscript sub-agents", () => {
     assert.equal(launch.content, "Merge complete.")
   })
 
+  it("files the run summary as a subtask summary, not as Orchestration", () => {
+    // Orchestration is harness work. Mixing the two made a filter for
+    // "orchestration" return sub-agent nodes in sessions with no harness
+    // events at all.
+    const launch = flat(reduceTranscript(lines).units[0]!.steps).find((n) => n.subtask)!
+    assert.equal(launch.children[0]!.type, "subtask-summary")
+  })
+
   it("adds no tool-result child under a launch node", () => {
     const launch = flat(reduceTranscript(lines).units[0]!.steps).find((n) => n.subtask)!
     assert.ok(!launch.children.some((c) => c.type === "tool-result"))

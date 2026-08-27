@@ -15,7 +15,7 @@ The plugin observes agent work and renders it as a **live flowchart** in the bro
 | **ToolResult** | Output of `ToolCall` (nested under it) | `tool.state=completed` → `tool-result` | — |
 | **Answer** | Final message shown to the human | `session.idle`/`agent_end` + last `ModelReply.text` | `result` |
 | **Orchestration** | Harness work around the model. **oh-my-pi**: an empty turn (worktree, queue). **Claude Code**: a `system` record that changed the run — compaction, API error, model fallback, local command | `finishTurn` without content, or a `system` record of one of four subtypes | hiding it — or showing every harness record |
-| **Sub-agent summary** | Single node collapsing >3 `Subtask` | `BaseSessionTracker.compose` when `refs.length>3` (OpenCode and Pi only) | — |
+| **Sub-agent summary** | Sub-agent work summarised rather than expanded — either >3 `Subtask` collapsed, or a run the platform never recorded | `BaseSessionTracker.compose` when `refs.length>3` (OpenCode, Pi); `applyAgentSummary` on Claude Code | filing it as `Orchestration` |
 
 | **planned** | A `Plan` item declared but not started, previewed at the tail of the unit | render only — no reducer emits it | — |
 

@@ -176,8 +176,12 @@ function applyAgentSummary(node: StepNode, result: unknown): void {
   const model = typeof summary["resolvedModel"] === "string" ? summary["resolvedModel"] : ""
   const parts = [model, typeof tools === "number" ? `${tools} tool calls` : ""].filter(Boolean)
   if (parts.length > 0) {
+    // Not Orchestration: that type means work the *harness* did around the
+    // model. This is sub-agent work shown as a summary because the platform
+    // records none of it — the same idea as collapsing more sub-agents than
+    // are expanded, so it carries the same type.
     node.children.push(
-      makeNode(`sub-${node.id}`, "orchestration", parts.join(" · "), "completed"),
+      makeNode(`sub-${node.id}`, "subtask-summary", parts.join(" · "), "completed"),
     )
   }
 }

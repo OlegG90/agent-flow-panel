@@ -62,7 +62,7 @@ Everything else is dropped on purpose. `stop_hook_summary` is the notable exclus
 
 Verified across all 59 transcripts on disk: 106 orchestration nodes produced, covering all four subtypes.
 
-**Sub-agent internals are not in the transcript.** Verified by running one: the file gains the `Agent` launch and its result, and nothing in between — no `isSidechain` records are written. The launch node therefore shows the brief, the returned report, and the run summary the result carries (`agentType`, `resolvedModel`, `totalDurationMs`, `usage`, `totalToolUseCount`). The tool is named `Agent` in Claude Code 2.x; `Task` is still matched for older transcripts.
+**Sub-agent internals are not in the transcript.** Verified by running one: the file gains the `Agent` launch and its result, and nothing in between — no `isSidechain` records are written. The launch node therefore shows the brief, the returned report, and the run summary the result carries (`agentType`, `resolvedModel`, `totalDurationMs`, `usage`, `totalToolUseCount`). That summary is a `subtask-summary` node, not an `orchestration` one: Orchestration means work the *harness* did, and mixing the two made a filter for `orchestration` return sub-agent nodes in sessions with no harness events at all. The tool is named `Agent` in Claude Code 2.x; `Task` is still matched for older transcripts.
 
 ### Pi / omp (`adapters/pi/`)
 
