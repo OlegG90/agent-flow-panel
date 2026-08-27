@@ -9,14 +9,16 @@ Live flowchart of the session in the browser: step tree on the left (60%), selec
 - `GET /` → `renderPanelHtml(getTree())` (full HTML with `STYLES` + `CLIENT_SCRIPT`)
 - `GET /data` → `JSON FlowTree`
 - `GET /events` → SSE (`Content-Type: text/event-stream`, `: connected` + `data: <renderFlowHtml>` on each `publish()`)
-- Port `0` → random `http://127.0.0.1:<port>/?t=<token>`, `publish()` is a no-op without clients and tolerates dead sockets
+- Port `0` → random `http://127.0.0.1:<port>/?t=<token>`, `publish()` is a no-op without clients, tolerates dead sockets, and coalesces frames on a leading+trailing window (`coalesceMs`, default 120ms; `0` disables)
 
 Opened via `execFile("cmd /c start")` / `open` / `xdg-open` from `openInBrowser`, but a failure to open does not crash the server — the URL is still returned.
 
 ## Render
 
 `src/flow/render.ts`:
+- `collapseTurn` merges each `ModelCall` with its single `ModelReply` before walking (display only — the domain keeps both; the `ModelCall` id is preserved so collapse/selection survive)
 - `walk(node, leaf)` recursively, `textLeaf` (for `flow_tree`) and `htmlLeaf` (for panel)
+- `metrics(node)` → duration / `1.2k→380 tok (900 cached)` / `$0.0042` badges; `unitSummary` totals them per unit in the heading. Nodes without reported metrics render unchanged.
 - `truncate` 80 (text) / 120 (html), `escapeHtml`/`attrEscape` (XSS, `&#10;` for SSE)
 - `data-id`/`data-type`/`data-state`/`data-content`/`data-reasoning` on `<li>` — for collapse and details
 - `Plan` chips above `steps`: `pending` grey, `in-progress` yellow, `completed` green
