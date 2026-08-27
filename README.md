@@ -23,7 +23,7 @@ npm run build   # → dist/opencode/server.js (OpenCode) + dist/pi/extension.js 
 | **OpenCode** | `opencode.json` → `"plugin": ["./src/server.ts"]` (dev) or `"plugin": ["file:///…/dist/opencode/server.js"]` |
 | **Claude Code** | `claude mcp add flow-panel -s local -- node /…/dist/claude/mcp.js` (MCP server, reads the session transcript) |
 | **Pi** | `pi -e C:/path/to/dist/pi/extension.js` or `~/.pi/agent/extensions/` |
-| **omp** | `omp -e C:/path/to/dist/pi/extension.js` (recommended) or `omp plugin link` |
+| **omp** | `extensions:` in `~/.omp/agent/config.yml` (permanent) or `omp -e C:/path/to/dist/pi/extension.js` |
 
 Full guide: [`docs/installation.md`](docs/installation.md) · Architecture: [`docs/architecture.md`](docs/architecture.md) · Panel: [`docs/panel.md`](docs/panel.md) · ADRs: [`docs/adr/`](docs/adr/) · API research: [`docs/opencode-plugin-system-research.md`](docs/opencode-plugin-system-research.md)
 
@@ -31,14 +31,14 @@ Full guide: [`docs/installation.md`](docs/installation.md) · Architecture: [`do
 
 - `/flow` / `flow_open` — open panel (keep history)
 - `/flow-reset` / `flow_panel` — open from scratch
-- `/flow_tree` / `flow_tree` — text tree in chat
+- `/flow-tree` / `flow_tree` — text tree in chat
 
 Panel: `http://127.0.0.1:<port>/?t=<token>` (`/` HTML, `/data` JSON, `/node?id=` one step, `/export` standalone snapshot, `/events` SSE — all require the token). Click `step-label` for details, `▾` to collapse; the toolbar filters steps, follows the running one, and exports the flow.
 
 ## Development
 
 ```sh
-npm test            # 188 tests (node --test)
+npm test            # 191 tests (node --test)
 npm run typecheck
 npm run lint
 npm run panel:fixture  # → docs/previews/panel-preview-*.html

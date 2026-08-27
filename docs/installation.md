@@ -102,28 +102,38 @@ pi -e C:/path/to/dist/pi/extension.js -p "hello"
 
 > `omp` uses `~/.omp` (not `~/.pi`) and its own `plugin` manager. The `pi` field in `package.json` is not auto-picked up for `omp` without action.
 
-**A — one-off (recommended):**
+**A — one-off:**
 ```sh
 npm run build
 omp -e C:/path/to/dist/pi/extension.js
-omp -e C:/path/to/dist/pi/extension.js -p "hello"
 ```
-Inside TUI: `/flow` (keep), `/flow-reset` (reset from scratch), `/flow_tree` or tools `flow_panel`/`flow_open`/`flow_tree`.
+Inside TUI: `/flow` (keep), `/flow-reset` (from scratch), `/flow-tree` (text tree), or the
+tools `flow_panel`/`flow_open`/`flow_tree`.
 
-**B — permanent (requires Developer Mode / admin for symlink):**
-```sh
-omp plugin link "C:/path/to/project"  # symlink into ~/.omp/plugins
-# if EPERM:
-# xcopy /E /I dist C:\Users\<you>\.omp\plugins\flow-panel\dist
-# or manually add to ~/.omp/agent/config.yml:
-# extensions: ["C:/path/to/dist/pi/extension.js"]
+**B — permanent (recommended): the `extensions` key in `~/.omp/agent/config.yml`.**
+```yaml
+extensions:
+  - C:/path/to/dist/pi/extension.js
 ```
+No admin rights and no symlink, and it applies in every directory. It also loads in *every*
+omp session, so a broken build here breaks omp everywhere until the line is removed — keep a
+stable copy of the bundle outside the repository if that matters. Append carefully: the file
+may have no trailing newline, and `>>` then produces `enabled: trueextensions:`.
 
-Check:
+`omp plugin link "C:/path/to/project"` also works but needs Developer Mode or admin for the
+symlink; on `EPERM`, `xcopy /E /I dist %USERPROFILE%\.omp\plugins\flow-panel\dist`.
+
+Check — the extension announces its version, but only under the debug flag:
 ```sh
-omp -e C:/path/to/dist/pi/extension.js -p "echo hi" 2>&1 | findstr flow
-# in TUI: /help should list /flow, /flow-reset
+FLOW_PANEL_DEBUG=1 omp -e C:/path/to/dist/pi/extension.js -p "hi"   # → [flow-panel] vX.Y.Z loaded
 ```
+To see where each command comes from, ask omp for its own registry:
+```sh
+echo '{"type":"noop"}' | omp --mode=rpc --no-session
+```
+The `available_commands_update` frame lists every command with a `source`. With the extension
+loaded, `flow` and `flow-tree` both report `source: extension`; without it they fall back to
+`source: file` — the Claude Code command files, which is the wrong answer.
 
 ## Build & development
 
@@ -136,7 +146,7 @@ still load them.
 ```sh
 npm install
 npm run build          # → dist/opencode/server.js + dist/claude/mcp.js + dist/pi/extension.js
-npm test               # node --test src/**/*.test.ts (188 tests)
+npm test               # node --test src/**/*.test.ts (191 tests)
 npm run typecheck
 npm run lint
 npm run panel:fixture  # → docs/previews/panel-preview-*.html
