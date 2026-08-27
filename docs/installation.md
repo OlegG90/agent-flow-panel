@@ -111,7 +111,7 @@ still load them.
 ```sh
 npm install
 npm run build          # → dist/server.js + dist/mcp.js + dist/extension.js
-npm test               # node --test src/**/*.test.ts (167 tests)
+npm test               # node --test src/**/*.test.ts (179 tests)
 npm run typecheck
 npm run lint
 npm run panel:fixture  # → docs/previews/panel-preview-*.html

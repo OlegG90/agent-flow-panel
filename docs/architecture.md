@@ -7,7 +7,7 @@
 - `src/flow/panel-routes.ts` — the paths the server, renderer and client agree on.
 - `src/flow/panel-styles.ts` / `src/flow/panel-client.ts` — the panel's stylesheet and its browser half, split out of render.ts so editing the toolbar no longer means editing a string buried in the tree renderer. `panel-client.test.ts` drives the real export page in jsdom, which is what catches cascade and filter regressions.
 - `src/server/open-browser.ts` — one `openInBrowser`, shared by all three entry points.
-- `src/flow/render.ts` — rendering `renderTree` (text) + `renderPanelHtml`/`renderFlowHtml`/`renderExportHtml` (HTML). Recursive `walk`, `collapseTurn` (ModelCall+ModelReply → one row), `metrics`/`unitSummary` (duration, tokens, cost badges), `truncate` 80/120, `escapeHtml`/`attrEscape`. `STYLES` with CSS variables per type (`--orchestration: #6b7280` dashed). `clientScript(live)` — `EventSource("/events" + location.search)`, `collapsed` Set, `selectedId`, details fetched from `/node`, filter/follow/collapse-all toolbar. `renderExportHtml` renders the same page with content inlined and no stream. Single-line `renderFlowHtml` for SSE.
+- `src/flow/render.ts` — rendering `renderTree` (text) + `renderPanelHtml`/`renderFlowHtml`/`renderExportHtml` (HTML). Recursive `walk`, `collapseTurn` (ModelCall+ModelReply → one row), `metrics`/`unitSummary` (duration, tokens, cost badges), `truncate` 80/120, `escapeHtml`/`attrEscape`, and page assembly. It pulls `STYLES` and `clientScript(live)` from the panel modules above rather than owning them. `renderExportHtml` renders the same page with content inlined and no stream. Single-line `renderFlowHtml` for SSE.
 - `src/flow/tracker.ts` — `BaseSessionTracker<S>`: `stores:Map<sessionID,S>` + `childrenOf:Map<parentID,{id,created}[]>`, `registerChild` (idempotent), `tree`/`compose`/`graft`/`summaryNode` (`MAX_DETAILED_SUBTASKS=3`). Both adapters extend it; only `dispatch` is platform-specific.
 - `src/server/panel-server.ts` — `http` + SSE: `GET /` → `renderPanelHtml(getTree())`, `/data` → `JSON`, `/events` → `text/event-stream` (`: connected` + `data: <html>`), `publish()` coalesces frames on a leading+trailing window (`coalesceMs`, default 120ms) and broadcasts to `Set<ServerResponse>`, random port `0`. Routes: `/`, `/data`, `/node?id=`, `/export`, `/events`. Every one is gated by a per-run 128-bit token (`?t=…`, `timingSafeEqual`); `url(path?)` builds tokenized URLs.
 
@@ -15,8 +15,8 @@
 
 ```
 src/
-  flow/            # shared: types, render, tracker (BaseSessionTracker)
-  server/          # panel-server
+  flow/            # shared: types, nodes, render, panel-{routes,styles,client}, tracker
+  server/          # panel-server, open-browser
   adapters/
     opencode/      # FlowStore, SessionTracker (Event)
     claude/        # transcript reducer, session-source, mcp-server
@@ -26,7 +26,7 @@ src/
   extension.ts     # re-export pi (Pi/omp entry)
 ```
 
-The dependency arrow points one way: `flow/` never imports an adapter. Adapter tests live next to their adapter (`adapters/opencode/*.test.ts`, `adapters/pi/*.test.ts`).
+The dependency arrow points one way: `flow/` never imports an adapter. Adapter tests live next to their adapter (`adapters/opencode|claude|pi/*.test.ts`).
 
 ### OpenCode (`adapters/opencode/`)
 
