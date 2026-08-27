@@ -191,6 +191,83 @@ describe("renderPanelHtml", () => {
   })
 })
 
+describe("turn collapsing", () => {
+  it("renders a ModelCall and its single ModelReply as one row", () => {
+    const html = renderFlowHtml(tree)
+    assert.ok(!html.includes("step--model-reply"), "the reply gets no row of its own")
+    // The reply's text and reasoning move onto the call's row.
+    assert.ok(html.includes('data-content="Here are the files"'))
+    assert.ok(html.includes('data-reasoning="User asked for a listing"'))
+    // The reply's tool call becomes a direct child of the collapsed row.
+    assert.match(html, /step--model-call[^>]*>.*?<ol class="steps steps--nested"><li class="step step--tool-call/)
+  })
+
+  it("keeps the ModelCall id so collapse and selection survive", () => {
+    const html = renderFlowHtml(tree)
+    assert.ok(html.includes('data-id="mc-m2"'))
+    assert.ok(!html.includes('data-id="mr-m2"'))
+  })
+
+  it("drops one level of indentation from the text tree", () => {
+    const text = renderTree(tree)
+    assert.ok(text.includes("  [done] Model call: Here are the files"))
+    assert.ok(text.includes("    [done] Tool: bash"))
+    assert.ok(!text.includes("Model reply"))
+  })
+
+  it("leaves a ModelCall alone when it does not wrap exactly one reply", () => {
+    const orchestration: FlowTree = {
+      sessionID: "s1",
+      units: [
+        {
+          id: "m1",
+          request: tree.units[0]!.request,
+          steps: [
+            {
+              id: "orc-1",
+              type: "orchestration",
+              label: "Orchestration",
+              state: "completed",
+              content: "",
+              children: [],
+            },
+            {
+              id: "mc-two",
+              type: "model-call",
+              label: "Model call",
+              state: "completed",
+              content: "",
+              children: [
+                {
+                  id: "mr-a",
+                  type: "model-reply",
+                  label: "Model reply",
+                  state: "completed",
+                  content: "first",
+                  children: [],
+                },
+                {
+                  id: "mr-b",
+                  type: "model-reply",
+                  label: "Model reply",
+                  state: "completed",
+                  content: "second",
+                  children: [],
+                },
+              ],
+            },
+          ],
+          plan: [],
+        },
+      ],
+    }
+    const html = renderFlowHtml(orchestration)
+    assert.ok(html.includes('data-id="mr-a"'))
+    assert.ok(html.includes('data-id="mr-b"'))
+    assert.ok(html.includes("step--orchestration"))
+  })
+})
+
 describe("metrics", () => {
   const metered: FlowTree = {
     sessionID: "s1",

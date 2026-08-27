@@ -111,6 +111,33 @@ function attrEscape(value: string): string {
   return escapeHtml(value).replaceAll("\n", "&#10;")
 }
 
+/**
+ * A ModelCall always wraps exactly one ModelReply and carries no content of
+ * its own, so rendering both costs two levels of nesting per turn for no
+ * information. Collapse them into one row for display only — the domain keeps
+ * the two nodes distinct, and the id stays the ModelCall's so collapse and
+ * selection survive the transform.
+ */
+function collapseTurn(node: StepNode): StepNode {
+  const children = node.children.map(collapseTurn)
+  const reply = children[0]
+  const mergeable =
+    node.type === "model-call" &&
+    node.content.length === 0 &&
+    children.length === 1 &&
+    reply !== undefined &&
+    reply.type === "model-reply"
+  if (!mergeable) {
+    return { ...node, children }
+  }
+  return {
+    ...node,
+    content: reply.content,
+    reasoning: reply.reasoning ?? node.reasoning,
+    children: reply.children,
+  }
+}
+
 interface WalkContext {
   node: StepNode
   inner: string
@@ -207,7 +234,7 @@ function unitText(unit: UnitOfWork, index: number): string {
   const lines = [`Unit of Work #${index + 1}${suffix}: ${truncate(unit.request.content)}`]
   lines.push(walk(unit.request, 1, textLeaf))
   for (const step of unit.steps) {
-    lines.push(walk(step, 1, textLeaf))
+    lines.push(walk(collapseTurn(step), 1, textLeaf))
   }
   const plan = renderPlan(unit.plan, "text")
   if (plan) {
@@ -225,7 +252,7 @@ function unitHtml(unit: UnitOfWork, index: number): string {
     `<h2 class="unit-title">Unit of Work #${index + 1}${summary}</h2>`,
     renderPlan(unit.plan, "html"),
     `<ol class="steps">${walk(unit.request, 0, htmlLeaf)}${unit.steps
-      .map((step) => walk(step, 0, htmlLeaf))
+      .map((step) => walk(collapseTurn(step), 0, htmlLeaf))
       .join("")}</ol>`,
     "</section>",
   ].join("")
