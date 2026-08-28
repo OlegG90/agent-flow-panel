@@ -31,7 +31,7 @@
     "build:claude": "esbuild src/mcp.ts --bundle --platform=node --format=esm --outfile=dist/claude/mcp.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "node --test \"src/**/*.test.ts\"",
+    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
     "panel:fixture": "node scripts/render-fixture.ts"
   },
   "dependencies": {
