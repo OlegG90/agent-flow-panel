@@ -177,12 +177,12 @@ describe("panel client — unit order", () => {
     assert.equal(button.textContent, "Newest first")
   })
 
-  it("never reverses the steps inside a unit", () => {
-    // Steps are causally ordered — a tool result after its call. Only the
-    // units flip; reversing inside one would be nonsense.
+  it("reverses the steps inside a unit too, so Answer lands on top", () => {
     click("order-toggle")
     const steps = q(".unit")[0]!.querySelector(".steps")!
-    assert.notEqual(win.getComputedStyle(steps).flexDirection, "column-reverse")
+    assert.equal(win.getComputedStyle(steps).flexDirection, "column-reverse")
+    // DOM stays causal; visual order is the reverse — Answer (last) appears
+    // first, User request (first) last, because newest events float to the top.
     const labels = [...steps.querySelectorAll(":scope > .step > .step-label")].map((e) => e.textContent)
     assert.deepEqual(labels, [
       "User request",
@@ -190,7 +190,13 @@ describe("panel client — unit order", () => {
       "Context compacted (auto)",
       "API error 500",
     ])
+    // Visual reversal is proveable via computed style on both top-level and
+    // nested steps lists — the latter carries tool calls under a Model call.
+    const nested = doc.querySelector(".steps--nested")!
+    assert.equal(win.getComputedStyle(nested).flexDirection, "column-reverse")
     click("order-toggle")
+    assert.equal(win.getComputedStyle(steps).flexDirection, "column")
+    assert.equal(win.getComputedStyle(nested).flexDirection, "column")
   })
 })
 

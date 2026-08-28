@@ -357,7 +357,7 @@ describe("navigation toolbar", () => {
 
   it("keeps matches visible under a collapsed ancestor while filtering", () => {
     const html = renderPanelHtml(tree)
-    assert.ok(html.includes(".filtering .step.collapsed > .steps--nested { display: block; }"))
+    assert.ok(html.includes(".filtering .step.collapsed > .steps--nested { display: flex; }"))
     assert.ok(html.includes(".step--hidden { display: none; }"))
   })
 
