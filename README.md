@@ -25,7 +25,7 @@ npm run build   # → dist/opencode/server.js (OpenCode) + dist/pi/extension.js 
 | **Pi** | `pi -e C:/path/to/dist/pi/extension.js` or `~/.pi/agent/extensions/` |
 | **omp** | `extensions:` in `~/.omp/agent/config.yml` (permanent) or `omp -e C:/path/to/dist/pi/extension.js` |
 
-Full guide: [`docs/installation.md`](docs/installation.md) · Architecture: [`docs/architecture.md`](docs/architecture.md) · Panel: [`docs/panel.md`](docs/panel.md) · ADRs: [`docs/adr/`](docs/adr/) · API research: [`docs/opencode-plugin-system-research.md`](docs/opencode-plugin-system-research.md)
+Install it permanently for one agent: [`docs/quick-install.md`](docs/quick-install.md) · Full guide: [`docs/installation.md`](docs/installation.md) · Architecture: [`docs/architecture.md`](docs/architecture.md) · Panel: [`docs/panel.md`](docs/panel.md) · ADRs: [`docs/adr/`](docs/adr/) · API research: [`docs/opencode-plugin-system-research.md`](docs/opencode-plugin-system-research.md)
 
 ## Usage
 

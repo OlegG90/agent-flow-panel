@@ -2,7 +2,8 @@
 
 - **Concepts** — domain model: `concepts.md` (expanded) + `../CONTEXT.md` (concise glossary for the agent)
 - **Architecture** — shared core vs adapters, panel-server, build: `architecture.md`
-- **Installation** — OpenCode / Claude Code / Pi / omp: `installation.md`
+- **Quick install** — one agent, global, from clone to working commands: `quick-install.md`
+- **Installation** — every route per agent, and what changes when agents share a machine: `installation.md`
 - **Panel** — live SSE, rendering, previews: `panel.md`
 - **ADRs** — `adr/0001-external-renderer-for-panel.md`, `0002-pi-and-oh-my-pi-adaptation.md`. Claude Code arrived after both; `architecture.md` carries its design, since it reads a transcript rather than an event stream.
 - **Research** — `opencode-plugin-system-research.md` (facts on Plugin API v1/v2, events, storage)
