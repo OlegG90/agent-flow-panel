@@ -39,6 +39,7 @@ h1 { font-size: 1.25rem; }
 .unit-title { font-size: 1rem; margin-top: 0; }
 .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .steps--nested { margin-left: 1.25rem; margin-top: 0.4rem; border-left: 2px solid var(--border); padding-left: 0.75rem; display: flex; flex-direction: column; }
+.step { padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid transparent; margin-top: 0.3rem; }
 .step-label { font-weight: 600; }
 .step-state { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; margin-left: 0.5rem; }
 .step-toggle { cursor: pointer; background: none; border: none; color: var(--muted); font-size: 0.75rem; margin-right: 0.35rem; padding: 0; transition: transform 0.15s; }
@@ -90,6 +91,7 @@ h1 { font-size: 1.25rem; }
 .step--hit > .step-label { text-decoration: underline; text-decoration-color: var(--selected); text-underline-offset: 3px; }
 /* While filtering, a collapsed ancestor must not hide a match beneath it. */
 .filtering .step.collapsed > .steps--nested { display: flex; }
+.layout { display: flex; gap: 1rem; align-items: flex-start; }
 .flow { flex: 3; min-width: 0; display: flex; flex-direction: column; }
 /* Newest-first is a display flip only: units keep their order in the DOM, so
    the choice survives an innerHTML replacement and never reorders steps.
@@ -101,6 +103,8 @@ h1 { font-size: 1.25rem; }
 .details {
   flex: 2;
   min-width: 0;
+  position: sticky;
+  top: 0;
   max-height: calc(100vh - 2rem);
   overflow: auto;
   background: var(--panel);
