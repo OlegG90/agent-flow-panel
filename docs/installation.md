@@ -137,11 +137,17 @@ loaded, `flow` and `flow-tree` both report `source: extension`; without it they 
 
 ## Build & development
 
-**Node versions.** `package.json` declares `engines: { node: ">=22.18" }`, which is what
-*this repository* needs: `npm test` and `npm run panel:fixture` run `.ts` files directly,
-and unflagged type stripping landed in 22.18. The **built bundles** are plain JavaScript
-and only need **Node ≥ 17** (for `structuredClone`), so an agent on an older runtime can
-still load them.
+**Node versions.** `package.json` declares `engines: { node: ">=22.18" }`, which is what it
+takes to *build*: `npm run panel:fixture` runs a `.ts` file with no flag, and unflagged type
+stripping landed in 22.18. The **built bundles** are plain JavaScript and only need
+**Node ≥ 17** (for `structuredClone`), so an agent on an older runtime can still load them.
+
+Running the **tests** asks for more, and `engines` deliberately does not say so. `npm test`
+passes `--experimental-strip-types` (22.6+), but jsdom — which drives the panel's behaviour
+tests — declares `^22.22.2 || ^24.15.0 || >=26.0.0`, above the floor here. So on Node
+22.18–22.22.1 the plugin builds and runs while the test suite may not. That is the intended
+trade: `engines` describes what it takes to build and run the plugin, not to test it, and
+raising it would turn a contributor-only concern into an install-time warning for everyone.
 
 ```sh
 npm install
