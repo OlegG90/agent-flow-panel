@@ -21,9 +21,11 @@ function isTaskPayload(text: string): boolean {
 }
 
 // Oh-my-pi delegation tools — treated as subtask launches (analog of OpenCode `task`)
+// Generic `task` is what the omp harness emits for delegates; map it too.
 const SUBTASK_TOOLS: Record<string, true> = {
   oh_my_pi_delegate_task: true,
   oh_my_pi_subagent: true,
+  task: true,
 }
 
 interface TurnState {
@@ -157,12 +159,16 @@ export class PiFlowStore {
     // Empty turn (no text/reasoning/tools) is oh-my-pi bookkeeping
     // (worktree setup, queue poll). Keep it but as distinct "orchestration"
     // type — user requested not to hide even empty steps.
+    // Variant A: give it a readable label + content so the dimmed node
+    // explains itself instead of looking like a bug.
     const hasContent =
       visibleText(turn).trim().length > 0 || visibleReasoning(turn).trim().length > 0
     const hasTools = turn.modelReply.children.length > 0
     if (!hasContent && !hasTools) {
       turn.modelCall.type = "orchestration"
-      turn.modelCall.label = "Orchestration"
+      turn.modelCall.label = `Harness · turn ${turnId}`
+      turn.modelCall.content =
+        "harness tick — no model output, no tools (worktree/queue housekeeping)"
       turn.modelCall.children = []
       // Drop the now-irrelevant empty reply from the turn's hierarchy;
       // keep modelReply object for state but not in tree.

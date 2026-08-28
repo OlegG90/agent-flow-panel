@@ -186,7 +186,7 @@ export default function piExtension(pi: ExtensionAPI): void {
       return false
     })()
     // Only handle delegate tools via execution_end if not already completed via tool_result
-    if (toolName === "oh_my_pi_delegate_task" || toolName === "oh_my_pi_subagent") {
+    if (toolName === "oh_my_pi_delegate_task" || toolName === "oh_my_pi_subagent" || toolName === "task") {
       tracker.dispatchBySession(sid, (store) => {
         store.onToolResult(toolCallId, toolName, result ?? "", isError)
       })

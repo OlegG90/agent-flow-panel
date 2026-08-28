@@ -137,9 +137,11 @@ describe("PiFlowStore", () => {
     const unit = s.tree().units[0]!
     assert.equal(unit.steps.length, 3)
     assert.equal(unit.steps[1]!.type, "orchestration")
-    assert.equal(unit.steps[1]!.label, "Orchestration")
+    assert.equal(unit.steps[1]!.label, "Harness · turn 1")
+    assert.equal(unit.steps[1]!.content, "harness tick — no model output, no tools (worktree/queue housekeeping)")
     assert.equal(unit.steps[1]!.children.length, 0)
     assert.equal(unit.steps[2]!.type, "orchestration")
+    assert.equal(unit.steps[2]!.label, "Harness · turn 2")
   })
 
   it("ignores delegate_task JSON payload as model text", () => {
@@ -151,8 +153,8 @@ describe("PiFlowStore", () => {
     const unit = s.tree().units[0]!
     // should be converted to orchestration because payload is filtered
     assert.equal(unit.steps[0]!.type, "orchestration")
+    assert.equal(unit.steps[0]!.label, "Harness · turn 0")
   })
-
   it("times turns and tools against the injected clock", () => {
     let clock = 1000
     const s = new PiFlowStore(SID, () => clock)
