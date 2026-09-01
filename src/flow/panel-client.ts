@@ -207,10 +207,10 @@ ${live ? LIVE_BLOCK : ""}
       }
       return;
     }
-    const labelEl = event.target.closest(".step-label");
-    if (!labelEl) return;
-    const step = labelEl.closest(".step");
-    if (step) select(step);
+    const step = event.target.closest(".step");
+    if (!step) return;
+    if (!flow.contains(step)) return;
+    select(step);
   });
   detailsToggle.addEventListener("click", () => {
     const hidden = layout.classList.toggle("details-hidden");
