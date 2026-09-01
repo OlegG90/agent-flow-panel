@@ -690,7 +690,8 @@ describe("renderTree", () => {
     const html = renderPanelHtml(tree)
     assert.ok(html.includes('event.target.closest(".step-toggle")'))
     assert.ok(html.includes('step.classList.toggle("collapsed")'))
-    assert.ok(html.includes('event.target.closest(".step-label")'))
+    assert.ok(html.includes('event.target.closest(".step")'))
+    assert.ok(html.includes("select(step)"))
   })
 
   it("emits a stable data-id on each step for collapse persistence", () => {
