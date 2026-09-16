@@ -39,7 +39,7 @@ export interface PanelServerDeps {
 }
 
 export interface PanelServer {
-  start(): Promise<void>
+  start(port?: number): Promise<void>
   /** Absolute URL of a panel route, carrying the access token. */
   url(path?: string): string
   publish(): void
@@ -159,13 +159,13 @@ export function createPanelServer(deps: PanelServerDeps): PanelServer {
   }
 
   return {
-    async start(): Promise<void> {
+    async start(port = 0): Promise<void> {
       if (server.listening) {
         return
       }
       await new Promise<void>((resolve, reject) => {
         server.once("error", reject)
-        server.listen(0, "127.0.0.1", () => {
+        server.listen(port, "127.0.0.1", () => {
           server.removeListener("error", reject)
           resolve()
         })
