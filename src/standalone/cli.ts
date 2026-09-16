@@ -63,16 +63,16 @@ export function parseArgs(argv: readonly string[]): CliOptions {
     } else if (arg === "--help" || arg === "-h") {
       throw { help: true }
     } else if (arg.startsWith("--")) {
-      throw new Error(`unknown option ${arg}\n${usage()}`)
+      throw new Error(`unknown option ${arg} (see --help)`)
     } else if (!file) {
       file = arg
     } else {
-      throw new Error(`unexpected argument ${arg}\n${usage()}`)
+      throw new Error(`unexpected argument ${arg} (see --help)`)
     }
   }
 
   if (!file) {
-    throw new Error(usage())
+    throw new Error("missing <session-file> (see --help)")
   }
   if (exportFlag && exportPath === undefined) {
     exportPath = file.replace(/\.jsonl$/i, "") + ".html"
@@ -80,7 +80,7 @@ export function parseArgs(argv: readonly string[]): CliOptions {
   return { file, agent, port, open, exportPath }
 }
 
-function readLines(path: string): string[] {
+function readFileLines(path: string): string[] {
   try {
     return readFileSync(path, "utf8").split("\n")
   } catch {
@@ -112,7 +112,7 @@ async function main(argv: readonly string[]): Promise<number> {
   const path = resolve(options.file)
   let lines: string[]
   try {
-    lines = readLines(path)
+    lines = readFileLines(path)
   } catch (error) {
     process.stderr.write(`${(error as Error).message}\n`)
     return 1
@@ -128,14 +128,28 @@ async function main(argv: readonly string[]): Promise<number> {
     return 1
   }
 
-  const { tree, source } = buildTree(lines, options.file, agent)
+  let tree: FlowTree
+  let source: string
+  try {
+    const built = buildTree(lines, options.file, agent)
+    tree = built.tree
+    source = built.source
+  } catch (error) {
+    process.stderr.write(`${(error as Error).message}\n`)
+    return 1
+  }
   if (tree.units.length === 0) {
     process.stderr.write("no flow data found in file\n")
     return 1
   }
 
   if (options.exportPath) {
-    writeFileSync(resolve(options.exportPath), renderExportHtml(tree, { source }), "utf8")
+    try {
+      writeFileSync(resolve(options.exportPath), renderExportHtml(tree, { source }), "utf8")
+    } catch (error) {
+      process.stderr.write(`cannot write ${options.exportPath}: ${(error as Error).message}\n`)
+      return 1
+    }
     process.stdout.write(`${options.exportPath}\n`)
     return 0
   }

@@ -89,16 +89,17 @@ interface Turn {
 
 export function parsePiSession(lines: readonly string[]): PiRecord[] {
   const records: PiRecord[] = []
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     if (!line.trim()) {
-      continue
+      return
     }
     try {
       records.push(JSON.parse(line) as PiRecord)
     } catch {
-      // Persistence files may carry partial trailing writes; skip them.
+      // A static file must parse whole or not at all: fail-fast, no partial tree.
+      throw new Error(`invalid JSON on line ${index + 1}`)
     }
-  }
+  })
   return records
 }
 
@@ -117,6 +118,7 @@ export function reducePiSession(lines: readonly string[], sessionID = ""): FlowT
   const sid = piSessionID(records, sessionID)
   const units: UnitOfWork[] = []
   const toolNodes = new Map<string, StepNode>()
+  const toolNames = new Map<string, string>()
 
   let unit: UnitOfWork | undefined
   let turn: Turn | undefined
@@ -138,105 +140,113 @@ export function reducePiSession(lines: readonly string[], sessionID = ""): FlowT
     unit = undefined
     turn = undefined
     toolNodes.clear()
+    toolNames.clear()
   }
 
-  for (const record of records) {
-    const at = record.timestamp ? Date.parse(record.timestamp) : undefined
-
-    if (record.type === "message" && record.message?.role === "user") {
-      closeUnit()
-      const id = record.id ?? `unit-${units.length}`
-      const request = makeNode(
-        `ur-${id}`,
-        "user-request",
-        "User request",
-        "completed",
-        textOf(record.message.content),
-      )
-      if (at !== undefined) {
-        request.endedAt = at
-        previousAt = at
-      }
-      unit = { id, request, steps: [], plan: [] }
-      units.push(unit)
-      continue
+  const onUser = (record: PiRecord, at: number | undefined): void => {
+    closeUnit()
+    const id = record.id ?? `unit-${units.length}`
+    const request = makeNode(
+      `ur-${id}`,
+      "user-request",
+      "User request",
+      "completed",
+      textOf(record.message?.content),
+    )
+    if (at !== undefined) {
+      request.endedAt = at
+      previousAt = at
     }
+    unit = { id, request, steps: [], plan: [] }
+    units.push(unit)
+  }
 
-    if (record.type === "message" && record.message?.role === "assistant") {
-      if (!unit) {
-        continue
-      }
-      const id = record.id ?? `turn-${unit.steps.length}`
-      const call = makeNode(`mc-${id}`, "model-call", "Model call", "completed")
-      const reply = makeNode(`mr-${id}`, "model-reply", "Model reply", "completed")
-      call.children.push(reply)
-      // Like the Claude transcript, a persistence timestamp records when the
-      // record was written, so the call began when the previous one landed.
-      call.startedAt = previousAt ?? at
-      call.endedAt = at
-      reply.startedAt = call.startedAt
-      reply.endedAt = at
-      if (at !== undefined) {
-        previousAt = at
-      }
-      unit.steps.push(call)
-      turn = { call, reply, text: "" }
-      for (const block of (record.message.content ?? []) as Array<PiTextBlock & PiToolCallBlock>) {
-        if (block?.type === "thinking") {
-          reply.reasoning = ((reply.reasoning ?? "") + str(block.thinking)).trimStart()
-        } else if (block?.type === "text") {
-          turn.text += str(block.text)
-          reply.content = turn.text
-        } else if (block?.type === "toolCall" && block.id && block.name) {
-          const title = toolTitle(block.name, block.arguments)
-          const node = makeNode(
-            `tc-${block.id}`,
-            "tool-call",
-            title ? `Tool: ${block.name} · ${title}` : `Tool: ${block.name}`,
-            "completed",
-            str(block.arguments?.["intent"]) || str(block.arguments?.["i"]),
-          )
-          node.startedAt = at
-          toolNodes.set(block.id, node)
-          reply.children.push(node)
-        }
-      }
-      continue
+  const onAssistant = (record: PiRecord, at: number | undefined): void => {
+    if (!unit) {
+      return
     }
+    const id = record.id ?? `turn-${unit.steps.length}`
+    const call = makeNode(`mc-${id}`, "model-call", "Model call", "completed")
+    const reply = makeNode(`mr-${id}`, "model-reply", "Model reply", "completed")
+    call.children.push(reply)
+    // Like the Claude transcript, a persistence timestamp records when the
+    // record was written, so the call began when the previous one landed.
+    call.startedAt = previousAt ?? at
+    call.endedAt = at
+    reply.startedAt = call.startedAt
+    reply.endedAt = at
+    if (at !== undefined) {
+      previousAt = at
+    }
+    unit.steps.push(call)
+    turn = { call, reply, text: "" }
+    for (const block of (record.message?.content ?? []) as Array<PiTextBlock & PiToolCallBlock>) {
+      if (block?.type === "thinking") {
+        reply.reasoning = ((reply.reasoning ?? "") + str(block.thinking)).trimStart()
+      } else if (block?.type === "text") {
+        turn.text += str(block.text)
+        reply.content = turn.text
+      } else if (block?.type === "toolCall" && block.id && block.name) {
+        const title = toolTitle(block.name, block.arguments)
+        const node = makeNode(
+          `tc-${block.id}`,
+          "tool-call",
+          title ? `Tool: ${block.name} · ${title}` : `Tool: ${block.name}`,
+          "running",
+          str(block.arguments?.["intent"]) || str(block.arguments?.["i"]),
+        )
+        node.startedAt = at
+        toolNodes.set(block.id, node)
+        toolNames.set(block.id, block.name)
+        reply.children.push(node)
+      }
+    }
+  }
 
-    if (record.type === "message" && record.message?.role === "toolResult") {
-      const toolCallId = (record.message as { toolCallId?: string }).toolCallId
-      const node = toolCallId ? toolNodes.get(toolCallId) : undefined
-      if (!node) {
-        continue
-      }
-      node.endedAt = at
-      const text = textOf(record.message.content).slice(0, MAX_RESULT_CHARS)
-      if (record.message.isError) {
-        node.state = "failed"
-        node.content = text
-        continue
-      }
-      node.state = "completed"
+  const onToolResult = (record: PiRecord, at: number | undefined): void => {
+    const toolCallId = (record.message as { toolCallId?: string } | undefined)?.toolCallId
+    const node = toolCallId ? toolNodes.get(toolCallId) : undefined
+    if (!node || !toolCallId) {
+      return
+    }
+    node.endedAt = at
+    const text = textOf(record.message?.content).slice(0, MAX_RESULT_CHARS)
+    if (record.message?.isError) {
+      node.state = "failed"
       node.content = text
-      if (!node.children.some((child) => child.type === "tool-result")) {
-        const toolName = node.label.replace(/^Tool: ([^ ·]+).*$/, "$1")
-        node.children.push(makeNode(`tr-${node.id}`, "tool-result", `Result: ${toolName}`, "completed", text))
-      }
-      continue
+      return
     }
+    node.state = "completed"
+    node.content = text
+    if (!node.children.some((child) => child.type === "tool-result")) {
+      const toolName = toolNames.get(toolCallId) ?? "tool"
+      node.children.push(makeNode(`tr-${node.id}`, "tool-result", `Result: ${toolName}`, "completed", text))
+    }
+  }
 
-    if (record.type === "custom" && record.customType === "tool_execution_start") {
+  const onMarker = (record: PiRecord): void => {
+    if (record.customType === "tool_execution_start") {
       const node = record.data?.toolCallId ? toolNodes.get(record.data.toolCallId) : undefined
       if (node && node.state !== "completed" && node.state !== "failed") {
         node.state = "running"
       }
-      continue
-    }
-
-    if (record.type === "custom" && record.customType === "session_exit") {
+    } else if (record.customType === "session_exit") {
       closeUnit()
-      continue
+    }
+  }
+
+  for (const record of records) {
+    const at = record.timestamp ? Date.parse(record.timestamp) : undefined
+    const role = record.message?.role
+
+    if (record.type === "message" && role === "user") {
+      onUser(record, at)
+    } else if (record.type === "message" && role === "assistant") {
+      onAssistant(record, at)
+    } else if (record.type === "message" && role === "toolResult") {
+      onToolResult(record, at)
+    } else if (record.type === "custom") {
+      onMarker(record)
     }
     // title / session / model_change / thinking_level_change: ignored by design.
   }

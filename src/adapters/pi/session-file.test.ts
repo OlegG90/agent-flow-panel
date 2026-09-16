@@ -94,4 +94,16 @@ describe("reducePiSession", () => {
     const states = JSON.stringify(tree)
     assert.ok(!states.includes('"running"'))
   })
+
+  it("fails fast on corrupt lines instead of a partial tree", () => {
+    assert.throws(() => reducePiSession([...lines.slice(0, 4), "{nope", ...lines.slice(4)]), /line 5/)
+  })
+
+  it("completes tools that never got a result", () => {
+    const dangling = lines.filter((line) => !line.includes("toolResult"))
+    const tree = reducePiSession(dangling)
+    const tool = tree.units[0]?.steps.flatMap((s) => s.children).flatMap((r) => r.children)[0]
+    assert.equal(tool?.type, "tool-call")
+    assert.equal(tool?.state, "completed")
+  })
 })
