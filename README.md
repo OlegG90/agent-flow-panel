@@ -15,7 +15,7 @@ Details: [`docs/concepts.md`](docs/concepts.md) (step types, states), original g
 
 ```sh
 npm install
-npm run build   # → dist/opencode/server.js (OpenCode) + dist/pi/extension.js (Pi/omp) + dist/claude/mcp.js (Claude Code)
+npm run build   # → dist/opencode/server.js (OpenCode) + dist/pi/extension.js (Pi/omp) + dist/claude/mcp.js (Claude Code) + dist/standalone/cli.js
 ```
 
 | Agent | How to connect |
@@ -35,10 +35,20 @@ Install it permanently for one agent: [`docs/quick-install.md`](docs/quick-insta
 
 Panel: `http://127.0.0.1:<port>/?t=<token>` (`/` HTML, `/data` JSON, `/node?id=` one step, `/export` standalone snapshot, `/events` SSE — all require the token). Click `step-label` for details, `▾` to collapse; the toolbar filters steps, follows the running one, and exports the flow.
 
+## Standalone (finished session file, no agent running)
+
+```sh
+npm run flow-panel -- sess1.jsonl                  # serve + open browser (Ctrl+C stops)
+npm run flow-panel -- sess1.jsonl --export         # write sess1.html and exit
+node ./dist/standalone/cli.js sess1.jsonl --no-open --port 18731
+```
+
+One finished log per process; the agent is auto-detected from the content (`--agent claude|pi` overrides). Supported: Claude Code transcripts (`~/.claude/projects/<...>/<session>.jsonl`) and Pi / oh-my-pi persistence files (`sessions/*.jsonl`). OpenCode has no single-file log yet, so it stays live-only. Corrupt input fails fast (`invalid JSON on line N`, exit 1) — no partial tree.
+
 ## Development
 
 ```sh
-npm test            # 191 tests (node --test)
+npm test            # 214 tests (node --test)
 npm run typecheck
 npm run lint
 npm run panel:fixture  # → docs/previews/panel-preview-*.html
