@@ -14,13 +14,11 @@
   },
   "pi": {
     "extensions": [
-      "./dist/pi/extension.js",
       "./src/extension.ts"
     ]
   },
   "omp": {
     "extensions": [
-      "./dist/pi/extension.js",
       "./src/extension.ts"
     ]
   },
@@ -37,11 +35,15 @@
     "panel:fixture": "node scripts/render-fixture.ts"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "1.18.16",
-    "typebox": "npm:@sinclair/typebox@^0.34.0"
+    "@opencode-ai/plugin": "1.18.16"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "0.84.3",
+    "typebox": "npm:@sinclair/typebox@^0.34.0",
     "@eslint/js": "^9.0.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/jsdom": "^30.0.0",
