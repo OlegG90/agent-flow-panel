@@ -8,26 +8,25 @@
     "node": ">=22.18"
   },
   "exports": {
+    ".": "./src/server.ts",
     "./server": "./src/server.ts",
     "./extension": "./src/extension.ts",
     "./mcp": "./src/mcp.ts"
   },
   "pi": {
     "extensions": [
-      "./dist/pi/extension.js",
       "./src/extension.ts"
     ]
   },
   "omp": {
     "extensions": [
-      "./dist/pi/extension.js",
       "./src/extension.ts"
     ]
   },
   "scripts": {
     "build": "npm run build:opencode && npm run build:pi && npm run build:claude && npm run build:standalone",
     "build:opencode": "esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/opencode/server.js",
-    "build:pi": "esbuild src/extension.ts --bundle --platform=node --format=esm --outfile=dist/pi/extension.js --external:@earendil-works/* --external:@oh-my-pi/*",
+    "build:pi": "esbuild src/extension.ts --bundle --platform=node --format=esm --outfile=dist/pi/extension.js --external:@earendil-works/* --external:@oh-my-pi/* --external:typebox",
     "build:claude": "esbuild src/mcp.ts --bundle --platform=node --format=esm --outfile=dist/claude/mcp.js",
     "build:standalone": "esbuild src/standalone/cli.ts --bundle --platform=node --format=esm --outfile=dist/standalone/cli.js --banner:js=\"#!/usr/bin/env node\"",
     "flow-panel": "node src/standalone/cli.ts",
@@ -37,11 +36,14 @@
     "panel:fixture": "node scripts/render-fixture.ts"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "1.18.16",
-    "typebox": "npm:@sinclair/typebox@^0.34.0"
+    "@opencode-ai/plugin": "1.18.16"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.84.3",
+    "@earendil-works/pi-coding-agent": "^1.4.0",
     "@eslint/js": "^9.0.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/jsdom": "^30.0.0",
@@ -49,6 +51,7 @@
     "esbuild": "^0.28.2",
     "eslint": "^9.0.0",
     "jsdom": "^30.0.1",
+    "typebox": "^1.4.3",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.0.0"
   }

@@ -83,9 +83,10 @@ omp itself, though, is scriptable through `--mode=rpc`: newline-delimited JSON o
 
 ## Build & entry points
 
-- `package.json:exports` → `./server` = `src/server.ts`, `./extension` = `src/extension.ts`, `./mcp` = `src/mcp.ts`
-- `pi.extensions` + `omp.extensions` → `["./dist/pi/extension.js","./src/extension.ts"]` (jiti dev + bundle prod)
-- `npm run build` → one bundle per agent, each in its own folder: `dist/opencode/server.js`, `dist/pi/extension.js` (`--external:@earendil-works/* --external:@oh-my-pi/*`), `dist/claude/mcp.js` (MCP SDK inlined).
+- `package.json:exports` → `.` and `./server` = `src/server.ts`, `./extension` = `src/extension.ts`, `./mcp` = `src/mcp.ts`. The `.` entry is what lets a config name the package itself rather than a path inside it; a bare `"."` in `opencode.json` would not resolve without it.
+- `pi.extensions` + `omp.extensions` → `["./src/extension.ts"]` (the host strips types; the prod bundle is pointed at by absolute path in the host's own config)
+- `npm run build` → one bundle per agent, each in its own folder: `dist/opencode/server.js`, `dist/pi/extension.js` (`--external:@earendil-works/* --external:@oh-my-pi/* --external:typebox`), `dist/claude/mcp.js` (MCP SDK inlined).
+- `typebox` is a **peer** dependency, supplied by the Pi host (Pi 1.4 ships `typebox@1.3+`), which is why the Pi bundle externalizes it instead of inlining its own copy. The dev dependency tracks the same real package, so what typechecks here is what runs there — an earlier alias to `@sinclair/typebox` made those two different packages under one specifier.
 - The folder is deliberate. Every one of these paths ends up quoted in someone's config, and a line reading `node ./dist/claude/mcp.js` says which agent's flow it will show — which matters because an MCP server registered for one agent is visible to the others.
 - `src/server.ts` — `tracker`+`panelServer` created **per plugin instance** (not per module), `flow_panel` (reset), `flow_open` (keep), `flow_tree` (text). `server:Plugin{ event→tracker.dispatch }`, `server.instance.disposed` → `panelServer.close()`.
 

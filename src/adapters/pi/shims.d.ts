@@ -36,9 +36,3 @@ declare module "@earendil-works/pi-coding-agent" {
     signal: AbortSignal
   }
 }
-declare module "typebox" {
-  export const Type: {
-    Object(o: Record<string, unknown>): unknown
-    String(o?: unknown): unknown
-  }
-}
