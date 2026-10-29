@@ -138,21 +138,23 @@ loaded, `flow` and `flow-tree` both report `source: extension`; without it they 
 ## Build & development
 
 **Node versions.** `package.json` declares `engines: { node: ">=22.18" }`, which is what it
-takes to *build*: `npm run panel:fixture` runs a `.ts` file with no flag, and unflagged type
-stripping landed in 22.18. The **built bundles** are plain JavaScript and only need
-**Node ≥ 17** (for `structuredClone`), so an agent on an older runtime can still load them.
+takes to *build*: every `.ts` entry point here — `npm run panel:fixture`, `npm test`,
+`npm run flow-panel` — runs with no type-stripping flag, and unflagged type stripping landed
+in 22.18. The **built bundles** are plain JavaScript and only need **Node ≥ 17** (for
+`structuredClone`), so an agent on an older runtime can still load them. Development happens
+on current Node (26 at the time of writing); nothing in the toolchain pins a ceiling.
 
-Running the **tests** asks for more, and `engines` deliberately does not say so. `npm test`
-passes `--experimental-strip-types` (22.6+), but jsdom — which drives the panel's behaviour
-tests — declares `^22.22.2 || ^24.15.0 || >=26.0.0`, above the floor here. So on Node
-22.18–22.22.1 the plugin builds and runs while the test suite may not. That is the intended
-trade: `engines` describes what it takes to build and run the plugin, not to test it, and
-raising it would turn a contributor-only concern into an install-time warning for everyone.
+Running the **tests** asks for more, and `engines` deliberately does not say so: jsdom — which
+drives the panel's behaviour tests — declares `^22.22.2 || ^24.15.0 || >=26.0.0`, above the
+floor here. So on Node 22.18–22.22.1 the plugin builds and runs while the test suite may not.
+That is the intended trade: `engines` describes what it takes to build and run the plugin, not
+to test it, and raising it would turn a contributor-only concern into an install-time warning
+for everyone.
 
 ```sh
 npm install
 npm run build          # → dist/opencode/server.js + dist/claude/mcp.js + dist/pi/extension.js
-npm test               # node --test src/**/*.test.ts (191 tests)
+npm test               # node --test src/**/*.test.ts (214 tests)
 npm run typecheck
 npm run lint
 npm run panel:fixture  # → docs/previews/panel-preview-*.html
