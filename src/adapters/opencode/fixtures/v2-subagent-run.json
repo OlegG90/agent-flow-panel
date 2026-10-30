@@ -1,0 +1,554 @@
+[
+ {
+  "type": "session.inbox.enqueued",
+  "created": 1793360367210,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "inboxID": "msg_18c9b89df001k3s5tth4qB59Bi",
+   "item": {
+    "type": "user",
+    "payload": {
+     "text": "\"First call todowrite with two todos (read file, summarize). Then read notes.txt with the read tool. Then launch one subagent (agent: general, description: 'count words') that tells how many words not…"
+    },
+    "delivery": "steer"
+   }
+  }
+ },
+ {
+  "type": "session.inbox.delivered",
+  "created": 1793360367236,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "inboxID": "msg_18c9b89df001k3s5tth4qB59Bi"
+  }
+ },
+ {
+  "type": "session.step.started",
+  "created": 1793360370015,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b8e94001JhThLMPI0MdVod",
+   "started": 1793360367260
+  }
+ },
+ {
+  "type": "session.tool.input.started",
+  "created": 1793360370592,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b8e94001JhThLMPI0MdVod",
+   "id": "call_7d167d7a29ed4a92abd0aa38",
+   "name": "execute"
+  }
+ },
+ {
+  "type": "session.reasoning.ended",
+  "created": 1793360370871,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b8e94001JhThLMPI0MdVod",
+   "ordinal": 0,
+   "text": "The user wants me to call todowrite with two todos. The todowrite tool isn't listed in my catalog — I need to find it via search inside execute. Let me search for it."
+  }
+ },
+ {
+  "type": "session.tool.called",
+  "created": 1793360370885,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b8e94001JhThLMPI0MdVod",
+   "id": "call_7d167d7a29ed4a92abd0aa38",
+   "input": {
+    "code": "const r = await tools.search({query: \"todowrite\"});\nreturn r;"
+   }
+  }
+ },
+ {
+  "type": "session.tool.success",
+  "created": 1793360370924,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b8e94001JhThLMPI0MdVod",
+   "id": "call_7d167d7a29ed4a92abd0aa38",
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n  \"items\": [],\n  \"remaining\": 0,\n  \"next\": null\n}"
+    }
+   ]
+  }
+ },
+ {
+  "type": "session.step.ended",
+  "created": 1793360371022,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b8e94001JhThLMPI0MdVod",
+   "cost": 0,
+   "tokens": {
+    "input": 4103,
+    "output": 34,
+    "reasoning": 42,
+    "cache": {
+     "read": 4096,
+     "write": 0
+    }
+   },
+   "files": []
+  }
+ },
+ {
+  "type": "session.step.started",
+  "created": 1793360373698,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b9d65001cko4ir1I44sJY6",
+   "started": 1793360371062
+  }
+ },
+ {
+  "type": "session.tool.input.started",
+  "created": 1793360373971,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b9d65001cko4ir1I44sJY6",
+   "id": "call_d9e7f2af3688400a96ab06c8",
+   "name": "execute"
+  }
+ },
+ {
+  "type": "session.reasoning.ended",
+  "created": 1793360375087,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b9d65001cko4ir1I44sJY6",
+   "ordinal": 0,
+   "text": "No todowrite tool found. Let me search more broadly."
+  }
+ },
+ {
+  "type": "session.tool.called",
+  "created": 1793360375093,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b9d65001cko4ir1I44sJY6",
+   "id": "call_d9e7f2af3688400a96ab06c8",
+   "input": {
+    "code": "const a = await tools.search({query: \"todo\"});\nconst b = await tools.search({query: \"task write\"});\nreturn {a, b};"
+   }
+  }
+ },
+ {
+  "type": "session.tool.success",
+  "created": 1793360375109,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b9d65001cko4ir1I44sJY6",
+   "id": "call_d9e7f2af3688400a96ab06c8",
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n  \"a\": {\n    \"items\": [\n      {\n        \"path\": \"tools.myVault.dataview\",\n        \"description\": \"📊 Dataview operations - query: execute DQL queries (LIST FROM \\\"folder\\\", TABLE field FROM #tag WHER…"
+    }
+   ]
+  }
+ },
+ {
+  "type": "session.step.ended",
+  "created": 1793360375219,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9b9d65001cko4ir1I44sJY6",
+   "cost": 0,
+   "tokens": {
+    "input": 4206,
+    "output": 49,
+    "reasoning": 14,
+    "cache": {
+     "read": 4096,
+     "write": 0
+    }
+   },
+   "files": []
+  }
+ },
+ {
+  "type": "session.step.started",
+  "created": 1793360379425,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9badc1001xhWMmxn5P2PN1C",
+   "started": 1793360375246
+  }
+ },
+ {
+  "type": "session.tool.input.started",
+  "created": 1793360382524,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9badc1001xhWMmxn5P2PN1C",
+   "id": "call_f735a14f878c4202ad534b62",
+   "name": "read"
+  }
+ },
+ {
+  "type": "session.reasoning.ended",
+  "created": 1793360382895,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9badc1001xhWMmxn5P2PN1C",
+   "ordinal": 0,
+   "text": "There's no todowrite tool available in this environment. The user asked to call todowrite with two todos first. I should note that todowrite isn't available. I can't fabricate. Let me proceed with the…"
+  }
+ },
+ {
+  "type": "session.tool.called",
+  "created": 1793360382906,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9badc1001xhWMmxn5P2PN1C",
+   "id": "call_f735a14f878c4202ad534b62",
+   "input": {
+    "path": "notes.txt"
+   }
+  }
+ },
+ {
+  "type": "session.text.ended",
+  "created": 1793360382909,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9badc1001xhWMmxn5P2PN1C",
+   "ordinal": 0,
+   "text": "No `todowrite` tool is available in this environment (I searched the tool catalog — only vault, session, and file tools exist), so I can't create the todos. Proceeding with the rest:"
+  }
+ },
+ {
+  "type": "session.tool.success",
+  "created": 1793360382945,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9badc1001xhWMmxn5P2PN1C",
+   "id": "call_f735a14f878c4202ad534b62",
+   "content": [
+    {
+     "type": "text",
+     "text": "Read file notes.txt, lines 1-1\n1: hello"
+    }
+   ]
+  }
+ },
+ {
+  "type": "session.step.ended",
+  "created": 1793360383054,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9badc1001xhWMmxn5P2PN1C",
+   "cost": 0,
+   "tokens": {
+    "input": 2688,
+    "output": 61,
+    "reasoning": 81,
+    "cache": {
+     "read": 8256,
+     "write": 0
+    }
+   },
+   "files": []
+  }
+ },
+ {
+  "type": "session.step.started",
+  "created": 1793360385174,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9bcc5d001aX5chqhyMDTuk2",
+   "started": 1793360383083
+  }
+ },
+ {
+  "type": "session.tool.input.started",
+  "created": 1793360385848,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9bcc5d001aX5chqhyMDTuk2",
+   "id": "call_de08536e744347a1874665ab",
+   "name": "subagent"
+  }
+ },
+ {
+  "type": "session.reasoning.ended",
+  "created": 1793360387047,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9bcc5d001aX5chqhyMDTuk2",
+   "ordinal": 0,
+   "text": "The file notes.txt contains \"hello\". Now launch a general subagent to count words."
+  }
+ },
+ {
+  "type": "session.tool.called",
+  "created": 1793360387051,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9bcc5d001aX5chqhyMDTuk2",
+   "id": "call_de08536e744347a1874665ab",
+   "input": {
+    "agent": "general",
+    "description": "count words",
+    "prompt": "Read the file notes.txt in the current working directory and report how many words it contains. Answer with just the word count and the content."
+   }
+  }
+ },
+ {
+  "type": "session.created",
+  "created": 1793360387077,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "parentID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "title": "count words"
+  }
+ },
+ {
+  "type": "session.inbox.enqueued",
+  "created": 1793360387081,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "inboxID": "msg_18c9bdc08001cLwCFWqMssfmS7",
+   "item": {
+    "type": "user",
+    "payload": {
+     "text": "You are a subagent spawned by another session.\nRead the file notes.txt in the current working directory and report how many words it contains. Answer with just the word count and the content."
+    },
+    "delivery": "steer"
+   }
+  }
+ },
+ {
+  "type": "session.inbox.delivered",
+  "created": 1793360387094,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "inboxID": "msg_18c9bdc08001cLwCFWqMssfmS7"
+  }
+ },
+ {
+  "type": "session.step.started",
+  "created": 1793360391224,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "assistantMessageID": "msg_18c9bdc1d0012wlTKXcuWNLcHd",
+   "started": 1793360387110
+  }
+ },
+ {
+  "type": "session.tool.input.started",
+  "created": 1793360391253,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "assistantMessageID": "msg_18c9bdc1d0012wlTKXcuWNLcHd",
+   "id": "call_b528214c1ae54f68a8995697",
+   "name": "read"
+  }
+ },
+ {
+  "type": "session.reasoning.ended",
+  "created": 1793360391840,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "assistantMessageID": "msg_18c9bdc1d0012wlTKXcuWNLcHd",
+   "ordinal": 0,
+   "text": "Read notes.txt."
+  }
+ },
+ {
+  "type": "session.tool.called",
+  "created": 1793360391851,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "assistantMessageID": "msg_18c9bdc1d0012wlTKXcuWNLcHd",
+   "id": "call_b528214c1ae54f68a8995697",
+   "input": {
+    "path": "notes.txt"
+   }
+  }
+ },
+ {
+  "type": "session.tool.success",
+  "created": 1793360391875,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "assistantMessageID": "msg_18c9bdc1d0012wlTKXcuWNLcHd",
+   "id": "call_b528214c1ae54f68a8995697",
+   "content": [
+    {
+     "type": "text",
+     "text": "Read file notes.txt, lines 1-1\n1: hello"
+    }
+   ]
+  }
+ },
+ {
+  "type": "session.step.ended",
+  "created": 1793360391978,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "assistantMessageID": "msg_18c9bdc1d0012wlTKXcuWNLcHd",
+   "cost": 0,
+   "tokens": {
+    "input": 4125,
+    "output": 18,
+    "reasoning": 5,
+    "cache": {
+     "read": 3072,
+     "write": 0
+    }
+   },
+   "files": []
+  }
+ },
+ {
+  "type": "session.step.started",
+  "created": 1793360398705,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "assistantMessageID": "msg_18c9bef39001nRM8eCKEJJtWAZ",
+   "started": 1793360392004
+  }
+ },
+ {
+  "type": "session.reasoning.ended",
+  "created": 1793360399196,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "assistantMessageID": "msg_18c9bef39001nRM8eCKEJJtWAZ",
+   "ordinal": 0,
+   "text": "Count words: \"hello\" = 1 word."
+  }
+ },
+ {
+  "type": "session.text.ended",
+  "created": 1793360399200,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "assistantMessageID": "msg_18c9bef39001nRM8eCKEJJtWAZ",
+   "ordinal": 0,
+   "text": "1 word. Content: `hello`"
+  }
+ },
+ {
+  "type": "session.step.ended",
+  "created": 1793360399326,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS",
+   "assistantMessageID": "msg_18c9bef39001nRM8eCKEJJtWAZ",
+   "cost": 0,
+   "tokens": {
+    "input": 73,
+    "output": 10,
+    "reasoning": 12,
+    "cache": {
+     "read": 7168,
+     "write": 0
+    }
+   },
+   "files": []
+  }
+ },
+ {
+  "type": "session.execution.succeeded",
+  "created": 1793360399331,
+  "data": {
+   "sessionID": "ses_e73642405ffemKTmVkwSPe0NmS"
+  }
+ },
+ {
+  "type": "session.tool.success",
+  "created": 1793360399336,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9bcc5d001aX5chqhyMDTuk2",
+   "id": "call_de08536e744347a1874665ab",
+   "content": [
+    {
+     "type": "text",
+     "text": "<subagent sessionID=\"ses_e73642405ffemKTmVkwSPe0NmS\" state=\"completed\">\n1 word. Content: `hello`\n</subagent>"
+    }
+   ]
+  }
+ },
+ {
+  "type": "session.step.ended",
+  "created": 1793360399431,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9bcc5d001aX5chqhyMDTuk2",
+   "cost": 0,
+   "tokens": {
+    "input": 227,
+    "output": 62,
+    "reasoning": 19,
+    "cache": {
+     "read": 10880,
+     "write": 0
+    }
+   },
+   "files": []
+  }
+ },
+ {
+  "type": "session.step.started",
+  "created": 1793360400874,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9c0c54001zR4T5yLTC6w9N6",
+   "started": 1793360399456
+  }
+ },
+ {
+  "type": "session.reasoning.ended",
+  "created": 1793360404327,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9c0c54001zR4T5yLTC6w9N6",
+   "ordinal": 0,
+   "text": "Now mark todos completed — but there's no todowrite tool, so I can't. Answer briefly."
+  }
+ },
+ {
+  "type": "session.text.ended",
+  "created": 1793360404332,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9c0c54001zR4T5yLTC6w9N6",
+   "ordinal": 0,
+   "text": "Done — with one caveat: **there is no `todowrite` tool in this environment**, so I couldn't create or complete the todos (I searched the available tool catalog to confirm).\n\nThe rest completed:\n- **Re…"
+  }
+ },
+ {
+  "type": "session.step.ended",
+  "created": 1793360404437,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT",
+   "assistantMessageID": "msg_18c9c0c54001zR4T5yLTC6w9N6",
+   "cost": 0,
+   "tokens": {
+    "input": 167,
+    "output": 109,
+    "reasoning": 23,
+    "cache": {
+     "read": 11072,
+     "write": 0
+    }
+   },
+   "files": []
+  }
+ },
+ {
+  "type": "session.execution.succeeded",
+  "created": 1793360404442,
+  "data": {
+   "sessionID": "ses_e7364762bffeeGglkQc3NKwqaT"
+  }
+ }
+]

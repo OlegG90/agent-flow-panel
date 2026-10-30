@@ -1,12 +1,17 @@
 import { describe, it } from "node:test"
 import assert from "node:assert/strict"
 import type { Event, Message, Part } from "@opencode-ai/sdk"
+import type { V2Event } from "./adapters/opencode/v2-reducer.ts"
 import module from "./server.ts"
 
 describe("plugin module", () => {
   it("exports a server plugin with the flow-panel id", () => {
     assert.equal(module.id, "flow-panel")
     assert.equal(typeof module.server, "function")
+  })
+
+  it("exports a V2 setup for OpenCode 2.x from the same default export", () => {
+    assert.equal(typeof module.setup, "function")
   })
 })
 
@@ -68,5 +73,65 @@ describe("plugin instances", () => {
     })
 
     assert.match(await treeText(hooks, "s1"), /hello/)
+  })
+})
+
+interface RegisteredTool {
+  name: string
+  options?: { codemode?: boolean }
+  execute: (input: unknown, context: { sessionID: string }) => Promise<{ content: string }>
+}
+
+/** A stand-in for the V2 plugin context: a scripted event stream and a tool editor. */
+function v2Context(events: V2Event[]) {
+  const tools = new Map<string, RegisteredTool>()
+  let subscription: { types?: string[]; signal?: AbortSignal } | undefined
+  const ctx = {
+    event: {
+      subscribe(options: { types?: string[]; signal?: AbortSignal }) {
+        subscription = options
+        return (async function* () {
+          yield* events
+        })()
+      },
+    },
+    tool: {
+      transform: async (callback: (editor: { add: (tool: RegisteredTool) => void }) => void) => {
+        callback({ add: (tool) => tools.set(tool.name, tool) })
+        return { dispose: async () => {} }
+      },
+    },
+  }
+  return { ctx: ctx as unknown as Parameters<typeof module.setup>[0], tools, subscription: () => subscription }
+}
+
+describe("V2 plugin setup", () => {
+  const events: V2Event[] = [
+    {
+      type: "session.inbox.enqueued",
+      created: 1,
+      data: { sessionID: "s1", inboxID: "in1", item: { type: "user", payload: { text: "hello" } } },
+    },
+    { type: "session.inbox.delivered", created: 2, data: { sessionID: "s1", inboxID: "in1" } },
+  ]
+
+  it("registers the flow tools as direct (non Code Mode) tools", async () => {
+    const { ctx, tools } = v2Context([])
+    const cleanup = await module.setup(ctx)
+    assert.deepEqual([...tools.keys()], ["flow_panel", "flow_open", "flow_tree"])
+    assert.ok([...tools.values()].every((tool) => tool.options?.codemode === false))
+    await cleanup?.()
+  })
+
+  it("feeds the subscribed event stream into the tracker", async () => {
+    const { ctx, tools, subscription } = v2Context(events)
+    const cleanup = await module.setup(ctx)
+    await new Promise((resolve) => setImmediate(resolve))
+
+    assert.ok(subscription()?.types?.includes("session.tool.called"))
+    const result = await tools.get("flow_tree")!.execute({}, { sessionID: "s1" })
+    assert.match(result.content, /hello/)
+    await cleanup?.()
+    assert.equal(subscription()?.signal?.aborted, true)
   })
 })

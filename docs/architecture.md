@@ -18,7 +18,7 @@ src/
   flow/            # shared: types, nodes, render, panel-{routes,styles,client}, tracker
   server/          # panel-server, open-browser
   adapters/
-    opencode/      # FlowStore, SessionTracker (Event)
+    opencode/      # FlowStore, SessionTracker (V1 Event); V2FlowStore, V2SessionTracker (V2 Event)
     claude/        # transcript reducer, session-source, mcp-server
     pi/            # PiFlowStore, PiSessionTracker, extension.ts
   server.ts        # OpenCode entry (plugin module)
@@ -38,6 +38,14 @@ The dependency arrow points one way: `flow/` never imports an adapter. Adapter t
 - `Plan` from `todo.updated` (buffer `pendingTodos`).
 
 `SessionTracker extends BaseSessionTracker<FlowStore>` — adds only `dispatch(event)`: `session.created{parentID}` → `registerChild`, everything else routed by `sessionIDOf`. Composition (sort by `created`, tie-break on `id`, recursive flat graft of `request+steps`, `subtask-summary` beyond the third) lives in the shared base.
+
+### OpenCode 2.x (`adapters/opencode/v2-*`)
+
+OpenCode 2.x no longer emits V1 events; `setup()` subscribes to the V2 public stream (`{type, created, data}`, field names from `@opencode/schema/session-event`). `V2FlowStore` builds the same `FlowTree`:
+- `Unit` opens when a `user` inbox item is **delivered** (`session.inbox.enqueued` carries the text, `session.inbox.cancelled` drops it) and closes on `session.execution.succeeded|failed|interrupted`; failed/interrupted mark every still-running step `failed`. A delivered `synthetic` item (a background sub-agent's completion notice) reopens the last unit instead of starting a new one.
+- `TurnState` per `assistantMessageID` on `session.step.started` → `step.ended|failed` (tokens, cost, error). `text`/`reasoning` blocks stream via `*.delta` and are replaced by `*.ended`; both kinds share one `ordinal` sequence.
+- `session.tool.input.started{name}` → `called{input}` → `success{content}|failed{error}`. `subagent` becomes a `subtask:true` launch node labelled from `input.agent`/`description`; a follow-up (`input.sessionID`) is a plain node so it does not consume a child graft. A background run (`success.metadata.status === "running"`) stays running until the child session's own `execution.*`, which `V2SessionTracker` forwards to the parent store (`childFinished`).
+- `Plan` from `todowrite` input (only registered when OpenCode's `experimental.todo` is on).
 
 ### Claude Code (`adapters/claude/`)
 
@@ -88,6 +96,6 @@ omp itself, though, is scriptable through `--mode=rpc`: newline-delimited JSON o
 - `npm run build` → one bundle per agent, each in its own folder: `dist/opencode/server.js`, `dist/pi/extension.js` (`--external:@earendil-works/* --external:@oh-my-pi/* --external:typebox`), `dist/claude/mcp.js` (MCP SDK inlined).
 - `typebox` is a **peer** dependency, supplied by the Pi host (Pi 1.4 ships `typebox@1.3+`), which is why the Pi bundle externalizes it instead of inlining its own copy. The dev dependency tracks the same real package, so what typechecks here is what runs there — an earlier alias to `@sinclair/typebox` made those two different packages under one specifier.
 - The folder is deliberate. Every one of these paths ends up quoted in someone's config, and a line reading `node ./dist/claude/mcp.js` says which agent's flow it will show — which matters because an MCP server registered for one agent is visible to the others.
-- `src/server.ts` — `tracker`+`panelServer` created **per plugin instance** (not per module), `flow_panel` (reset), `flow_open` (keep), `flow_tree` (text). `server:Plugin{ event→tracker.dispatch }`, `server.instance.disposed` → `panelServer.close()`.
+- `src/server.ts` — `tracker`+`panelServer` created **per plugin instance** (not per module), `flow_panel` (reset), `flow_open` (keep), `flow_tree` (text). The default export serves both plugin APIs: 1.x calls `server:Plugin{ event→tracker.dispatch }` (`server.instance.disposed` → `panelServer.close()`); 2.x reads `id` + `setup(ctx)`, which registers the three tools through `ctx.tool.transform` (`codemode:false`, so they are direct tools), feeds `ctx.event.subscribe` into `V2SessionTracker`, and returns a cleanup that aborts the stream and closes the panel server.
 
 See `docs/adr/0001-external-renderer-for-panel.md` (why browser, not TUI), `0002-pi-and-oh-my-pi-adaptation.md` (dual-platform).

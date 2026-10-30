@@ -15,6 +15,8 @@
 
 After changes — **restart OpenCode** (config is not hot-reloaded). The plugin provides tools `flow_panel` / `flow_open` / `flow_tree`.
 
+The same entries work on OpenCode 1.x and 2.x: the plugin's default export carries both the V1 `server()` and the V2 `setup()`. Verified on 2.2.3 with the global config pointing at the project folder (`"plugin": ["file:///C:/absolute/path/agent-flow-panel"]`, resolved through `package.json` `exports`). On 2.x the Plan panel fills only when OpenCode's `experimental.todo` is enabled, since the `todowrite` tool is not registered otherwise.
+
 ## Claude Code
 
 Claude Code has no plugin event API, so the panel is served by an **MCP server**
