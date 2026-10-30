@@ -54,6 +54,8 @@ export const MAX_DETAILED_SUBTASKS = 3
 export abstract class BaseSessionTracker<S extends FlowStoreLike> {
   private readonly stores = new Map<string, S>()
   private readonly childrenOf = new Map<string, ChildRef[]>()
+  /** Sessions on the current `compose` chain, so a graft never recurses into one. */
+  private readonly composing = new Set<string>()
   private activeSessionID: string | undefined
   private listener: UpdateListener | undefined
 
@@ -109,7 +111,7 @@ export abstract class BaseSessionTracker<S extends FlowStoreLike> {
     return store ? store.tree() : { sessionID: id, units: [] }
   }
 
-  private compose(id: string, tree: FlowTree, ancestors: ReadonlySet<string> = new Set([id])): FlowTree {
+  private compose(id: string, tree: FlowTree): FlowTree {
     const launches = tree.units.map((unit) => {
       const refs: LaunchRef[] = []
       collectLaunchRefs(unit.steps, refs)
@@ -127,37 +129,35 @@ export abstract class BaseSessionTracker<S extends FlowStoreLike> {
       return tree
     }
     let cursor = 0
+    // Every launch, collapsed or not, takes its child, so positional ones advance the cursor.
+    const take = (ref: LaunchRef): string | undefined => ref.node.childSessionID ?? ordered[cursor++]?.id
+    this.composing.add(id)
     for (const { unit, refs } of launches) {
-      const detailed = refs.slice(0, MAX_DETAILED_SUBTASKS)
-      const rest = refs.slice(MAX_DETAILED_SUBTASKS)
-      for (const ref of detailed) {
-        let childID = ref.node.childSessionID
-        if (childID === undefined) {
-          childID = ordered[cursor]?.id
-          cursor += 1
-        }
+      const childIDs = refs.map(take)
+      refs.slice(0, MAX_DETAILED_SUBTASKS).forEach((ref, index) => {
+        const childID = childIDs[index]
         if (childID !== undefined) {
-          this.graft(ref.node, childID, ancestors)
+          this.graft(ref.node, childID)
         }
-      }
+      })
+      const rest = refs.slice(MAX_DETAILED_SUBTASKS)
       if (rest.length > 0) {
-        // The collapsed sub-agents still consumed their positional child sessions.
-        cursor += rest.filter((ref) => ref.node.childSessionID === undefined).length
         for (const ref of rest) {
           detach(ref.node, ref.parent)
         }
         unit.steps.push(this.summaryNode(unit.id, rest))
       }
     }
+    this.composing.delete(id)
     return tree
   }
 
-  private graft(node: StepNode, childID: string, ancestors: ReadonlySet<string>): void {
+  private graft(node: StepNode, childID: string): void {
     // An id reported by the platform could point back up the chain; never recurse into it.
-    if (ancestors.has(childID)) {
+    if (this.composing.has(childID)) {
       return
     }
-    const composed = this.compose(childID, this.ownTree(childID), new Set([...ancestors, childID]))
+    const composed = this.compose(childID, this.ownTree(childID))
     for (const unit of composed.units) {
       node.children.push(unit.request, ...unit.steps)
     }
