@@ -1,5 +1,5 @@
 import type { Event, Message, Part, Todo, ToolState } from "@opencode-ai/sdk"
-import type { FlowTree, PlanItem, StepNode } from "../../flow/types.ts"
+import type { FlowTree, PlanItem, StepNode, TokenUsage } from "../../flow/types.ts"
 import { makeAnswer, makeNode } from "../../flow/nodes.ts"
 
 interface TurnState {
@@ -17,6 +17,22 @@ interface UnitState {
   plan: PlanItem[]
   closed: boolean
   turns: TurnState[]
+}
+
+/** OpenCode reports cache usage nested; V1 and V2 share the shape. */
+export function toTokenUsage(tokens: {
+  input: number
+  output: number
+  reasoning: number
+  cache: { read: number; write: number }
+}): TokenUsage {
+  return {
+    input: tokens.input,
+    output: tokens.output,
+    reasoning: tokens.reasoning,
+    cacheRead: tokens.cache.read,
+    cacheWrite: tokens.cache.write,
+  }
 }
 
 export function planState(status: string): PlanItem["state"] {
@@ -98,13 +114,7 @@ export class FlowStore {
     turn.modelCall.startedAt = message.time.created
     turn.modelReply.startedAt = message.time.created
     turn.modelCall.cost = message.cost
-    turn.modelCall.tokens = {
-      input: message.tokens.input,
-      output: message.tokens.output,
-      reasoning: message.tokens.reasoning,
-      cacheRead: message.tokens.cache.read,
-      cacheWrite: message.tokens.cache.write,
-    }
+    turn.modelCall.tokens = toTokenUsage(message.tokens)
   }
 
   private ensureOpenUnit(id: string): UnitState {

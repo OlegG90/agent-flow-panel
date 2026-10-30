@@ -1,6 +1,6 @@
 import type { FlowTree, PlanItem, StepNode, StepState } from "../../flow/types.ts"
 import { makeAnswer, makeNode } from "../../flow/nodes.ts"
-import { planState } from "./reducer.ts"
+import { planState, toTokenUsage } from "./reducer.ts"
 
 /**
  * The slice of OpenCode's V2 public event stream (`ctx.event.subscribe`) the
@@ -97,6 +97,10 @@ export const V2_EVENT_TYPES = [
   "session.tool.failed",
 ] as const satisfies readonly V2Event["type"][]
 
+// Fails to compile when a `V2Event` member is missing from the subscription list.
+const allSubscribed: Exclude<V2Event["type"], (typeof V2_EVENT_TYPES)[number]> extends never ? true : never = true
+void allSubscribed
+
 /** V2's built-in tool names for launching a sub-agent and keeping the plan. */
 const SUBAGENT_TOOL = "subagent"
 const TODO_TOOL = "todowrite"
@@ -115,7 +119,6 @@ interface UnitState {
   request: StepNode
   steps: StepNode[]
   plan: PlanItem[]
-  closed: boolean
   turns: TurnState[]
 }
 
@@ -159,9 +162,11 @@ export class V2FlowStore {
   private readonly sessionID: string
   private readonly units: UnitState[] = []
   private openUnit: UnitState | null = null
-  /** User prompts are announced on enqueue but start work on delivery. */
-  private readonly queuedPrompts = new Map<string, string>()
-  private readonly queuedSynthetic = new Set<string>()
+  /**
+   * Inbox items are announced on enqueue but start work on delivery: a user
+   * prompt's text, or `null` for a synthetic item.
+   */
+  private readonly queued = new Map<string, string | null>()
   private readonly tools = new Map<string, ToolState>()
   /** Child session id → the `subagent` call driving it, for background runs. */
   private readonly childCalls = new Map<string, string>()
@@ -180,8 +185,7 @@ export class V2FlowStore {
         this.onDelivered(event.data.inboxID)
         break
       case "session.inbox.cancelled":
-        this.queuedPrompts.delete(event.data.inboxID)
-        this.queuedSynthetic.delete(event.data.inboxID)
+        this.queued.delete(event.data.inboxID)
         break
       case "session.execution.succeeded":
         this.closeOpenUnit(false)
@@ -253,31 +257,30 @@ export class V2FlowStore {
 
   private onEnqueued(inboxID: string, item: InboxItem): void {
     if (item.type === "user") {
-      this.queuedPrompts.set(inboxID, item.payload?.text ?? "")
+      this.queued.set(inboxID, item.payload?.text ?? "")
     } else if (item.type === "synthetic") {
-      this.queuedSynthetic.add(inboxID)
+      this.queued.set(inboxID, null)
     }
   }
 
   private onDelivered(inboxID: string): void {
-    if (this.queuedSynthetic.delete(inboxID)) {
+    const text = this.queued.get(inboxID)
+    if (text === undefined) {
+      return
+    }
+    this.queued.delete(inboxID)
+    if (text === null) {
       // A synthetic item (e.g. a background sub-agent's completion notice) wakes the
       // agent to continue the last request rather than starting a new one.
       this.reopenLastUnit()
       return
     }
-    const text = this.queuedPrompts.get(inboxID)
-    if (text === undefined) {
-      return
-    }
-    this.queuedPrompts.delete(inboxID)
     this.closeOpenUnit(false)
     const unit: UnitState = {
       id: inboxID,
       request: makeNode(`ur-${inboxID}`, "user-request", "User request", "completed", text),
       steps: [],
       plan: this.pendingPlan ?? [],
-      closed: false,
       turns: [],
     }
     this.pendingPlan = undefined
@@ -293,16 +296,14 @@ export class V2FlowStore {
     if (unit.steps.at(-1)?.type === "answer") {
       unit.steps.pop()
     }
-    unit.closed = false
     this.openUnit = unit
   }
 
   private closeOpenUnit(failed: boolean): void {
     const unit = this.openUnit
-    if (!unit || unit.closed) {
+    if (!unit) {
       return
     }
-    unit.closed = true
     this.openUnit = null
     if (failed) {
       failUnsettled(unit.steps)
@@ -311,7 +312,7 @@ export class V2FlowStore {
     if (!last) {
       return
     }
-    this.completeTurn(last)
+    this.settleTurn(last, "completed")
     const answer = makeAnswer(unit.id, joinBlocks(last.text))
     if (answer) {
       unit.steps.push(answer)
@@ -340,23 +341,14 @@ export class V2FlowStore {
       turn.modelCall.cost = data.cost
     }
     if (data.tokens) {
-      turn.modelCall.tokens = {
-        input: data.tokens.input,
-        output: data.tokens.output,
-        reasoning: data.tokens.reasoning,
-        cacheRead: data.tokens.cache.read,
-        cacheWrite: data.tokens.cache.write,
-      }
+      turn.modelCall.tokens = toTokenUsage(data.tokens)
     }
     turn.modelCall.endedAt = at
     turn.modelReply.endedAt = at
     if (state === "failed") {
-      turn.modelCall.state = "failed"
-      turn.modelReply.state = "failed"
       turn.modelCall.content = error ?? ""
-    } else {
-      this.completeTurn(turn)
     }
+    this.settleTurn(turn, state)
   }
 
   /** Deltas stream a block; its `ended` event carries the authoritative full text. */
@@ -366,24 +358,26 @@ export class V2FlowStore {
       return
     }
     const blocks = turn[kind]
+    const field = kind === "text" ? "content" : "reasoning"
+    const extendsLast = append && ref.ordinal === blocks.length - 1
     blocks[ref.ordinal] = append ? (blocks[ref.ordinal] ?? "") + chunk : chunk
-    if (kind === "text") {
-      turn.modelReply.content = joinBlocks(blocks)
-    } else {
-      turn.modelReply.reasoning = joinBlocks(blocks)
-    }
+    // Deltas almost always extend the newest block: append instead of re-joining every block.
+    turn.modelReply[field] = extendsLast ? (turn.modelReply[field] ?? "") + chunk : joinBlocks(blocks)
   }
 
-  private completeTurn(turn: TurnState): void {
+  /** A failed turn stays failed; closing its unit later must not complete it. */
+  private settleTurn(turn: TurnState, state: Settled): void {
     if (turn.modelCall.state === "failed") {
       return
     }
-    turn.modelCall.state = "completed"
-    turn.modelReply.state = "completed"
+    turn.modelCall.state = state
+    turn.modelReply.state = state
   }
 
   private findTurn(messageID: string): TurnState | undefined {
-    return this.openUnit?.turns.find((turn) => turn.messageID === messageID)
+    const turns = this.openUnit?.turns
+    const last = turns?.at(-1)
+    return last?.messageID === messageID ? last : turns?.find((turn) => turn.messageID === messageID)
   }
 
   private ensureTurn(messageID: string): TurnState | undefined {
