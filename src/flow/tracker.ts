@@ -110,16 +110,16 @@ export abstract class BaseSessionTracker<S extends FlowStoreLike> {
   }
 
   private compose(id: string, tree: FlowTree, ancestors: ReadonlySet<string> = new Set([id])): FlowTree {
-    const refsByUnit = tree.units.map((unit) => {
+    const launches = tree.units.map((unit) => {
       const refs: LaunchRef[] = []
       collectLaunchRefs(unit.steps, refs)
-      return refs
+      return { unit, refs }
     })
     // A launch node that names its child session is grafted by that id; the
     // rest are matched positionally against the children no node claimed.
+    const claimed = new Set(launches.flatMap(({ refs }) => refs.flatMap((ref) => ref.node.childSessionID ?? [])))
     // Sort by creation time, breaking ties on id so concurrent sub-agents keep
     // a stable order across renders instead of shifting the whole tree.
-    const claimed = new Set(refsByUnit.flat().flatMap((ref) => ref.node.childSessionID ?? []))
     const ordered = (this.childrenOf.get(id) ?? [])
       .filter((child) => !claimed.has(child.id))
       .sort((a, b) => a.created - b.created || a.id.localeCompare(b.id))
@@ -127,8 +127,7 @@ export abstract class BaseSessionTracker<S extends FlowStoreLike> {
       return tree
     }
     let cursor = 0
-    tree.units.forEach((unit, index) => {
-      const refs = refsByUnit[index]!
+    for (const { unit, refs } of launches) {
       const detailed = refs.slice(0, MAX_DETAILED_SUBTASKS)
       const rest = refs.slice(MAX_DETAILED_SUBTASKS)
       for (const ref of detailed) {
@@ -149,7 +148,7 @@ export abstract class BaseSessionTracker<S extends FlowStoreLike> {
         }
         unit.steps.push(this.summaryNode(unit.id, rest))
       }
-    })
+    }
     return tree
   }
 

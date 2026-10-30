@@ -338,6 +338,43 @@ describe("V2SessionTracker grafting by child session id", () => {
     ])
   })
 
+  it("does not graft a follow-up's child a second time", () => {
+    const followUp = { ...step, id: "c2" }
+    const tree = trackerWith([
+      ...prompt("s1", "in1", "hi"),
+      ...launch("c1", "first", "childA"),
+      ev("session.tool.input.started", { ...followUp, name: "subagent" }),
+      ev("session.tool.called", { ...followUp, input: { agent: "first", description: "more", sessionID: "childA" } }),
+      ev("session.tool.progress", { ...followUp, metadata: { sessionID: "childA" } }),
+      ...prompt("childA", "inA", "task A"),
+    ]).tree("s1")
+    assert.deepEqual(grafted(tree), [
+      ["Sub-agent: first", "task A"],
+      ["Sub-agent follow-up: first", undefined],
+    ])
+  })
+
+  it("collapses launches beyond the third without shifting positional grafts", () => {
+    const tree = trackerWith([
+      ...prompt("s1", "in1", "hi"),
+      ...launch("c1", "a", "childA"),
+      ...launch("c2", "b", "childB"),
+      ...launch("c3", "c", "childC"),
+      ...launch("c4", "d", "childD"),
+      ...launch("c5", "e"),
+      ev("session.created", { sessionID: "childE", parentID: "s1" }, 2),
+      ...["A", "B", "C", "D", "E"].flatMap((name) => prompt(`child${name}`, `in${name}`, `task ${name}`)),
+    ]).tree("s1")
+    assert.deepEqual(grafted(tree), [
+      ["Sub-agent: a", "task A"],
+      ["Sub-agent: b", "task B"],
+      ["Sub-agent: c", "task C"],
+    ])
+    const summary = tree.units[0]!.steps.at(-1)!
+    assert.equal(summary.type, "subtask-summary")
+    assert.equal(summary.content, "d, e")
+  })
+
   it("does not recurse when a reported child id points back up the chain", () => {
     const tree = trackerWith([...prompt("s1", "in1", "hi"), ...launch("c1", "loop", "s1")]).tree("s1")
     assert.deepEqual(grafted(tree), [["Sub-agent: loop", undefined]])
