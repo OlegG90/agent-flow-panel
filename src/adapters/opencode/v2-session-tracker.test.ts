@@ -271,3 +271,75 @@ describe("V2SessionTracker failure and sub-agent edge cases", () => {
     assert.notEqual(node.subtask, true)
   })
 })
+
+describe("V2SessionTracker grafting by child session id", () => {
+  const step = { sessionID: "s1", assistantMessageID: "a1" }
+
+  /** A `subagent` call in `s1`, optionally reporting the child it drives. */
+  function launch(id: string, agent: string, childSessionID?: string): V2Event[] {
+    const call = { ...step, id }
+    const events = [
+      ev("session.tool.input.started", { ...call, name: "subagent" }),
+      ev("session.tool.called", { ...call, input: { agent, description: agent } }),
+    ]
+    if (childSessionID) {
+      events.push(ev("session.tool.progress", { ...call, metadata: { sessionID: childSessionID } }))
+    }
+    return events
+  }
+
+  function grafted(tree: ReturnType<V2SessionTracker["tree"]>): [string, string | undefined][] {
+    return tree.units[0]!.steps[0]!.children[0]!.children.map((node) => [
+      node.label,
+      node.children[0]?.content,
+    ])
+  }
+
+  it("grafts under the launch that names the child, whatever the creation order", () => {
+    const tree = trackerWith([
+      ...prompt("s1", "in1", "hi"),
+      ...launch("c1", "first", "childA"),
+      ...launch("c2", "second", "childB"),
+      // Created out of order: positionally childB would land under "first".
+      ev("session.created", { sessionID: "childB", parentID: "s1" }, 2),
+      ev("session.created", { sessionID: "childA", parentID: "s1" }, 3),
+      ...prompt("childA", "inA", "task A"),
+      ...prompt("childB", "inB", "task B"),
+    ]).tree("s1")
+    assert.deepEqual(grafted(tree), [
+      ["Sub-agent: first", "task A"],
+      ["Sub-agent: second", "task B"],
+    ])
+  })
+
+  it("grafts by id when session.created never arrived", () => {
+    const tree = trackerWith([
+      ...prompt("s1", "in1", "hi"),
+      ...launch("c1", "first", "childA"),
+      ...prompt("childA", "inA", "task A"),
+    ]).tree("s1")
+    assert.deepEqual(grafted(tree), [["Sub-agent: first", "task A"]])
+  })
+
+  it("falls back to creation order for launches whose child is not yet reported", () => {
+    const tree = trackerWith([
+      ...prompt("s1", "in1", "hi"),
+      ...launch("c1", "first"),
+      ...launch("c2", "second", "childA"),
+      // childA is older but claimed by "second"; "first" takes the unclaimed childB.
+      ev("session.created", { sessionID: "childA", parentID: "s1" }, 2),
+      ev("session.created", { sessionID: "childB", parentID: "s1" }, 3),
+      ...prompt("childA", "inA", "task A"),
+      ...prompt("childB", "inB", "task B"),
+    ]).tree("s1")
+    assert.deepEqual(grafted(tree), [
+      ["Sub-agent: first", "task B"],
+      ["Sub-agent: second", "task A"],
+    ])
+  })
+
+  it("does not recurse when a reported child id points back up the chain", () => {
+    const tree = trackerWith([...prompt("s1", "in1", "hi"), ...launch("c1", "loop", "s1")]).tree("s1")
+    assert.deepEqual(grafted(tree), [["Sub-agent: loop", undefined]])
+  })
+})
