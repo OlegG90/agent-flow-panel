@@ -29,6 +29,8 @@ export interface StepNode {
   content: string
   reasoning?: string
   subtask?: boolean
+  /** The child session a `subtask` launch node drives, when the platform reports it. */
+  childSessionID?: string
   /** Epoch ms; present once the platform reports when the step began. */
   startedAt?: number
   /** Epoch ms; present once the step reached a terminal state. */

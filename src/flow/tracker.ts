@@ -47,12 +47,15 @@ export const MAX_DETAILED_SUBTASKS = 3
 /**
  * Shared session bookkeeping: one reducer per session, a parent→children map,
  * and the composition that grafts each child session's tree under the
- * `subtask` launch node that started it. Adapters add only their own
+ * `subtask` launch node that started it — by the node's `childSessionID` when
+ * the adapter knows it, otherwise by creation order. Adapters add only their own
  * platform-specific `dispatch`.
  */
 export abstract class BaseSessionTracker<S extends FlowStoreLike> {
   private readonly stores = new Map<string, S>()
   private readonly childrenOf = new Map<string, ChildRef[]>()
+  /** Sessions on the current `compose` chain, so a graft never recurses into one. */
+  private readonly composing = new Set<string>()
   private activeSessionID: string | undefined
   private listener: UpdateListener | undefined
 
@@ -109,45 +112,52 @@ export abstract class BaseSessionTracker<S extends FlowStoreLike> {
   }
 
   private compose(id: string, tree: FlowTree): FlowTree {
-    const children = this.childrenOf.get(id)
-    if (!children || children.length === 0) {
-      return tree
-    }
-    // Launch nodes carry no child-session id, so they are matched positionally.
-    // Sort by creation time, breaking ties on id so concurrent sub-agents keep
-    // a stable order across renders instead of shifting the whole tree.
-    const ordered = [...children].sort((a, b) => a.created - b.created || a.id.localeCompare(b.id))
-    let cursor = 0
-    for (const unit of tree.units) {
+    const launches = tree.units.map((unit) => {
       const refs: LaunchRef[] = []
       collectLaunchRefs(unit.steps, refs)
-      if (refs.length === 0) {
-        continue
-      }
-      const detailed = refs.slice(0, MAX_DETAILED_SUBTASKS)
-      const rest = refs.slice(MAX_DETAILED_SUBTASKS)
-      for (const ref of detailed) {
-        const child = ordered[cursor]
-        if (!child) {
-          break
+      return { unit, refs }
+    })
+    // A launch node that names its child session is grafted by that id; the
+    // rest are matched positionally against the children no node claimed.
+    const claimed = new Set(launches.flatMap(({ refs }) => refs.flatMap((ref) => ref.node.childSessionID ?? [])))
+    // Sort by creation time, breaking ties on id so concurrent sub-agents keep
+    // a stable order across renders instead of shifting the whole tree.
+    const ordered = (this.childrenOf.get(id) ?? [])
+      .filter((child) => !claimed.has(child.id))
+      .sort((a, b) => a.created - b.created || a.id.localeCompare(b.id))
+    if (claimed.size === 0 && ordered.length === 0) {
+      return tree
+    }
+    let cursor = 0
+    // Every launch, collapsed or not, takes its child, so positional ones advance the cursor.
+    const take = (ref: LaunchRef): string | undefined => ref.node.childSessionID ?? ordered[cursor++]?.id
+    this.composing.add(id)
+    for (const { unit, refs } of launches) {
+      const childIDs = refs.map(take)
+      refs.slice(0, MAX_DETAILED_SUBTASKS).forEach((ref, index) => {
+        const childID = childIDs[index]
+        if (childID !== undefined) {
+          this.graft(ref.node, childID)
         }
-        cursor += 1
-        this.graft(ref.node, child)
-      }
+      })
+      const rest = refs.slice(MAX_DETAILED_SUBTASKS)
       if (rest.length > 0) {
-        // The collapsed sub-agents still consumed their child sessions.
-        cursor += rest.length
         for (const ref of rest) {
           detach(ref.node, ref.parent)
         }
         unit.steps.push(this.summaryNode(unit.id, rest))
       }
     }
+    this.composing.delete(id)
     return tree
   }
 
-  private graft(node: StepNode, child: ChildRef): void {
-    const composed = this.compose(child.id, this.ownTree(child.id))
+  private graft(node: StepNode, childID: string): void {
+    // An id reported by the platform could point back up the chain; never recurse into it.
+    if (this.composing.has(childID)) {
+      return
+    }
+    const composed = this.compose(childID, this.ownTree(childID))
     for (const unit of composed.units) {
       node.children.push(unit.request, ...unit.steps)
     }

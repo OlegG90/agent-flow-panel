@@ -431,8 +431,8 @@ export class V2FlowStore {
       const agent = nonEmptyString(input.agent) ?? "agent"
       tool.node.content = nonEmptyString(input.description) ?? ""
       if (nonEmptyString(input.sessionID)) {
-        // A follow-up to an existing child starts no new session, so there is
-        // nothing to graft; a launch node here would shift every later graft.
+        // A follow-up drives a child already grafted under its original launch,
+        // so it is a plain node: grafting it again would duplicate that subtree.
         tool.node.subtask = false
         tool.node.label = `Sub-agent follow-up: ${agent}`
       } else {
@@ -445,8 +445,10 @@ export class V2FlowStore {
 
   private trackChild(callID: string, metadata: ToolMetadata | undefined): void {
     const child = nonEmptyString(metadata?.sessionID)
-    if (child && this.tools.get(callID)?.name === SUBAGENT_TOOL) {
+    const tool = this.tools.get(callID)
+    if (child && tool?.name === SUBAGENT_TOOL) {
       this.childCalls.set(child, callID)
+      tool.node.childSessionID = child
     }
   }
 
