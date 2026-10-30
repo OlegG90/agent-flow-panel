@@ -19,7 +19,7 @@ interface UnitState {
   turns: TurnState[]
 }
 
-function planState(status: string): PlanItem["state"] {
+export function planState(status: string): PlanItem["state"] {
   switch (status) {
     case "in_progress":
       return "in-progress"

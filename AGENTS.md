@@ -7,9 +7,9 @@ A **TypeScript plugin** that visualizes an agent's work as a live flowchart pane
 ## Working here
 
 - Dev commands: `npm run typecheck`, `npm run lint`, `npm test` (node built-in test runner, `.ts` run via Node type stripping).
-- The plugin is loaded from the project via `opencode.json` → `"plugin": ["./src/server.ts"]`. Plugin module contract: one default export serving both APIs (verified against OpenCode 1.18.16 and 2.2.3).
+- The plugin is loaded from the project via `opencode.json` → `"plugin": ["./src/server.ts"]`. Plugin module contract: one default export serving both APIs (the 1.x path is unchanged from 1.18.16; OpenCode documents the combined object form from 1.18.29; the 2.x path is verified live on 2.2.3).
   - OpenCode 1.x calls `server()` — `tool()` helper and types from `@opencode-ai/plugin`; V1 events (`message.part.updated`, …) feed `adapters/opencode/reducer.ts`.
-  - OpenCode 2.x reads `id` + `setup(ctx)` — types from `@opencode/plugin` (type-only, dev dependency); tools via `ctx.tool.transform` with `codemode: false`, events via `ctx.event.subscribe` feed `adapters/opencode/v2-reducer.ts`. 2.x loads local plugins only from a directory path, not a `.ts` file. API docs: `services/www/src/docs/content/build/plugins/{server,migrate-v1}.mdx` in `anomalyco/opencode`.
+  - OpenCode 2.x reads `id` + `setup(ctx)` — types from `@opencode/plugin` (type-only, dev dependency); tools via `ctx.tool.transform` with `codemode: false`, events via `ctx.event.subscribe` feed `adapters/opencode/v2-reducer.ts`. Verified with the global config pointing at the project folder (`file:///…/agent-flow-panel`). API docs: `services/www/src/docs/content/build/plugins/{server,migrate-v1}.mdx` in `anomalyco/opencode`.
 - Headless verification on Windows: pipe `opencode run` output through `Start-Process` with redirected files — piping straight into PowerShell `Select-String` hangs.
 - Before adding plugin/config files, load the `customize-opencode` skill (built-in) for the current OpenCode plugin, config, and agent conventions — do not guess the plugin API from memory.
 - Keep commits scoped and conventional.

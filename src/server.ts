@@ -2,7 +2,7 @@ import type { Plugin, PluginModule } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
 import type { Plugin as PluginV2 } from "@opencode/plugin"
 import { SessionTracker } from "./adapters/opencode/session-tracker.ts"
-import { SessionTrackerV2 } from "./adapters/opencode/v2-session-tracker.ts"
+import { V2SessionTracker } from "./adapters/opencode/v2-session-tracker.ts"
 import { V2_EVENT_TYPES, type V2Event } from "./adapters/opencode/v2-reducer.ts"
 import type { BaseSessionTracker, FlowStoreLike } from "./flow/tracker.ts"
 import { renderTree } from "./flow/render.ts"
@@ -93,20 +93,23 @@ const server: Plugin = async () => {
 
 /** OpenCode 2.x: tools and the event subscription are registered in `setup()`. */
 const setup: PluginV2.Plugin["setup"] = async (ctx) => {
-  const tracker = new SessionTrackerV2()
+  const tracker = new V2SessionTracker()
   const flow = createFlowRuntime(tracker)
   const controller = new AbortController()
 
   void (async () => {
+    let failure: unknown
     try {
       const events = ctx.event.subscribe({ types: [...V2_EVENT_TYPES], signal: controller.signal })
       for await (const event of events) {
         tracker.dispatch(event as V2Event)
       }
     } catch (error) {
-      if (!controller.signal.aborted) {
-        console.error("[flow-panel] event stream ended:", error)
-      }
+      failure = error
+    }
+    // The stream is volatile by contract; once it ends the panel stops updating.
+    if (!controller.signal.aborted) {
+      console.error("[flow-panel] event stream ended; the panel will no longer update.", failure ?? "")
     }
   })()
 

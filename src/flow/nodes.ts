@@ -13,6 +13,7 @@ import type { StepNode, StepState, StepType } from "./types.ts"
  * | `mc-`     | ModelCall — the id the panel selects on |
  * | `mr-`     | ModelReply, folded into the call on screen |
  * | `tc-`     | ToolCall, keyed by the platform's call id |
+ * | `launch-` | sub-agent launch ToolCall (OpenCode), keyed by call id |
  * | `tr-`     | ToolResult, derived from its call's id  |
  * | `ans-`    | the unit's Answer                       |
  */

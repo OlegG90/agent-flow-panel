@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import type { StepNode } from "../../flow/types.ts"
 import type { V2Event } from "./v2-reducer.ts"
-import { SessionTrackerV2 } from "./v2-session-tracker.ts"
+import { V2SessionTracker } from "./v2-session-tracker.ts"
 
 const PARENT = "ses_e7364762bffeeGglkQc3NKwqaT"
 
@@ -13,8 +13,8 @@ function recordedRun(): V2Event[] {
   return JSON.parse(readFileSync(url, "utf8")) as V2Event[]
 }
 
-function trackerWith(events: V2Event[]): SessionTrackerV2 {
-  const tracker = new SessionTrackerV2()
+function trackerWith(events: V2Event[]): V2SessionTracker {
+  const tracker = new V2SessionTracker()
   for (const event of events) {
     tracker.dispatch(event)
   }
@@ -43,7 +43,7 @@ function labels(nodes: StepNode[]): string[] {
   return nodes.map((node) => node.label)
 }
 
-describe("SessionTrackerV2 on a recorded OpenCode 2.2.3 run", () => {
+describe("V2SessionTracker on a recorded OpenCode 2.2.3 run", () => {
   const tree = trackerWith(recordedRun()).tree(PARENT)
 
   it("opens one unit for the prompt and closes it with the final answer", () => {
@@ -91,7 +91,7 @@ describe("SessionTrackerV2 on a recorded OpenCode 2.2.3 run", () => {
   })
 })
 
-describe("SessionTrackerV2", () => {
+describe("V2SessionTracker", () => {
   it("starts a unit only once a queued prompt is delivered", () => {
     const [enqueued, delivered] = prompt("s1", "in1", "do it")
     const tracker = trackerWith([enqueued!])
@@ -190,5 +190,84 @@ describe("SessionTrackerV2", () => {
       ev("session.step.started", { sessionID: "s1", assistantMessageID: "a1", started: 1 }),
     ]).tree("s1")
     assert.equal(tree.units.length, 0)
+  })
+})
+
+describe("V2SessionTracker failure and sub-agent edge cases", () => {
+  const step = { sessionID: "s1", assistantMessageID: "a1" }
+  const tool = { ...step, id: "c1" }
+
+  it("fails the unsettled steps of an interrupted execution", () => {
+    const tree = trackerWith([
+      ...prompt("s1", "in1", "hi"),
+      ev("session.step.started", { ...step, started: 1 }),
+      ev("session.tool.input.started", { ...tool, name: "shell" }),
+      ev("session.tool.called", { ...tool, input: {} }),
+      ev("session.execution.interrupted", { sessionID: "s1" }),
+    ]).tree("s1")
+    const call = tree.units[0]!.steps[0]!
+    assert.equal(call.state, "failed")
+    assert.equal(call.children[0]!.children[0]!.state, "failed")
+  })
+
+  it("forgets a cancelled prompt", () => {
+    const [enqueued, delivered] = prompt("s1", "in1", "hi")
+    const tree = trackerWith([
+      enqueued!,
+      ev("session.inbox.cancelled", { sessionID: "s1", inboxID: "in1" }),
+      delivered!,
+    ]).tree("s1")
+    assert.equal(tree.units.length, 0)
+  })
+
+  it("keeps a background sub-agent running until its child session finishes", () => {
+    const launch = { ...tool, id: "sub1" }
+    const tracker = trackerWith([
+      ...prompt("s1", "in1", "hi"),
+      ev("session.tool.input.started", { ...launch, name: "subagent" }),
+      ev("session.tool.called", { ...launch, input: { agent: "general", description: "bg", background: true } }),
+      ev("session.created", { sessionID: "child", parentID: "s1" }, 2),
+      ev("session.tool.success", {
+        ...launch,
+        content: [{ type: "text", text: "started" }],
+        metadata: { sessionID: "child", status: "running" },
+      }),
+      ev("session.execution.succeeded", { sessionID: "s1" }),
+    ])
+    const node = () => tracker.tree("s1").units[0]!.steps[0]!.children[0]!.children[0]!
+    assert.equal(node().state, "running")
+    tracker.dispatch(ev("session.execution.succeeded", { sessionID: "child" }, 9))
+    assert.equal(node().state, "completed")
+    assert.equal(node().endedAt, 9)
+  })
+
+  it("continues the last unit when a synthetic wake-up is delivered", () => {
+    const wake = { sessionID: "s1", inboxID: "in2" }
+    const tree = trackerWith([
+      ...prompt("s1", "in1", "hi"),
+      ev("session.text.ended", { ...step, ordinal: 0, text: "waiting" }),
+      ev("session.execution.succeeded", { sessionID: "s1" }),
+      ev("session.inbox.enqueued", { ...wake, item: { type: "synthetic", payload: { text: "done" } } }),
+      ev("session.inbox.delivered", wake),
+      ev("session.text.ended", { sessionID: "s1", assistantMessageID: "a2", ordinal: 0, text: "all done" }),
+      ev("session.execution.succeeded", { sessionID: "s1" }),
+    ]).tree("s1")
+    assert.equal(tree.units.length, 1)
+    assert.deepEqual(
+      tree.units[0]!.steps.map((s) => s.type),
+      ["model-call", "model-call", "answer"],
+    )
+    assert.equal(tree.units[0]!.steps.at(-1)!.content, "all done")
+  })
+
+  it("does not treat a sub-agent follow-up as a new launch", () => {
+    const tree = trackerWith([
+      ...prompt("s1", "in1", "hi"),
+      ev("session.tool.input.started", { ...tool, name: "subagent" }),
+      ev("session.tool.called", { ...tool, input: { agent: "general", description: "more", sessionID: "child" } }),
+    ]).tree("s1")
+    const node = tree.units[0]!.steps[0]!.children[0]!.children[0]!
+    assert.equal(node.label, "Sub-agent follow-up: general")
+    assert.notEqual(node.subtask, true)
   })
 })
